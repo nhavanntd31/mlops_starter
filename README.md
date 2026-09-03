@@ -1,267 +1,235 @@
-# Buổi 01 — Tổng quan MLOps và Kiến trúc Production
+# Buổi 02 — Quản lý Dữ liệu và Data Pipeline
 
 ## Mục tiêu buổi học
 
-- Hiểu MLOps là gì, tại sao cần MLOps trong môi trường production
-- Nhận biết các giai đoạn của AI/ML lifecycle
-- Thiết lập repository chuẩn cho dự án ML
-- Vẽ được architecture diagram cơ bản
-- Viết project charter cho dự án House Price Prediction
+- Xây dựng data pipeline từ đầu đến cuối: ingest → validate → preprocess → split
+- Hiểu data quality là gì và cách kiểm tra chất lượng dữ liệu
+- Sử dụng DVC để quản lý phiên bản dataset
+- Viết unit test cho data pipeline
 
 ---
 
 ## Kiến thức lý thuyết
 
-### MLOps = ML + DevOps
+### Data Pipeline là gì?
 
-MLOps (Machine Learning Operations) là tập hợp các phương pháp, quy trình và công cụ giúp triển khai, vận hành và bảo trì hệ thống Machine Learning trong môi trường production một cách đáng tin cậy và hiệu quả.
-
-Trong thực tế, phần lớn thời gian của một dự án ML **không phải** là viết model mà là:
-
-| Hoạt động                  | Tỷ lệ thời gian ước tính |
-| -------------------------- | ------------------------- |
-| Thu thập & làm sạch dữ liệu | ~40%                      |
-| Xây dựng pipeline          | ~20%                      |
-| Triển khai & giám sát       | ~25%                      |
-| Huấn luyện & tinh chỉnh model | ~15%                   |
-
-MLOps giải quyết các vấn đề phổ biến:
-
-- **Không tái tạo được kết quả** — thiếu quản lý phiên bản dữ liệu và tham số
-- **Triển khai thủ công** — dễ sai sót, mất thời gian
-- **Không phát hiện model xuống cấp** — thiếu hệ thống giám sát
-- **Không có quy trình kiểm duyệt** — model đưa lên production mà không qua validation
-
-### ML Lifecycle
+Data pipeline là chuỗi các bước xử lý dữ liệu có thứ tự, tự động hóa, và có thể tái tạo được. Mỗi bước nhận đầu vào từ bước trước và tạo đầu ra cho bước sau.
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         ML LIFECYCLE                                │
-│                                                                     │
-│  Business Problem                                                   │
-│       │                                                             │
-│       ▼                                                             │
-│  Data Collection ──► Data Validation ──► Feature Engineering        │
-│                                                │                    │
-│                                                ▼                    │
-│                                          Model Training             │
-│                                                │                    │
-│                                                ▼                    │
-│                                        Model Evaluation             │
-│                                                │                    │
-│                                                ▼                    │
-│                                         Model Registry              │
-│                                                │                    │
-│                                                ▼                    │
-│                                          Model Serving              │
-│                                                │                    │
-│                                                ▼                    │
-│                                           Monitoring                │
-│                                                │                    │
-│                                                ▼                    │
-│                                           Retraining ──────┐       │
-│                                                            │       │
-│                              ◄─────────────────────────────┘       │
-└─────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                        DATA PIPELINE                                 │
+│                                                                      │
+│  data/raw/houses.csv                                                 │
+│       │                                                              │
+│       ▼                                                              │
+│  ┌──────────┐    ┌──────────┐    ┌─────────────┐    ┌──────────┐    │
+│  │  Ingest   │──►│ Validate  │──►│ Preprocess   │──►│  Split    │    │
+│  │          │    │          │    │             │    │          │    │
+│  │ Đọc CSV  │    │ Kiểm tra │    │ Encode      │    │ Train    │    │
+│  │ chuẩn hóa│    │ chất lượng│    │ Scale       │    │ Val      │    │
+│  │ schema   │    │ dữ liệu  │    │ Lưu encoder │    │ Test     │    │
+│  └──────────┘    └──────────┘    └─────────────┘    └──────────┘    │
+│                                                          │           │
+│                                                          ▼           │
+│                                              data/processed/         │
+│                                              ├── train.csv           │
+│                                              ├── val.csv             │
+│                                              └── test.csv            │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
-### Các vai trò trong team MLOps
+### Data Quality — 6 chiều chất lượng dữ liệu
 
-| Vai trò           | Trách nhiệm chính                                                   | Công cụ thường dùng                |
-| ----------------- | -------------------------------------------------------------------- | ---------------------------------- |
-| Data Engineer     | Xây dựng pipeline dữ liệu, đảm bảo chất lượng dữ liệu              | Airflow, Spark, SQL, dbt           |
-| ML Engineer       | Huấn luyện model, tinh chỉnh hyperparams, đánh giá hiệu năng       | Scikit-learn, PyTorch, MLflow      |
-| MLOps Engineer    | Triển khai model, CI/CD, giám sát, quản lý hạ tầng                  | Docker, Kubernetes, GitHub Actions |
-| Product Owner     | Định nghĩa bài toán kinh doanh, đặt tiêu chí chấp nhận             | Jira, Confluence                   |
+| Chiều           | Mô tả                                              | Ví dụ kiểm tra                                     |
+| --------------- | --------------------------------------------------- | --------------------------------------------------- |
+| Completeness    | Dữ liệu không bị thiếu                             | Kiểm tra tỷ lệ null < 5%                           |
+| Consistency     | Dữ liệu nhất quán giữa các nguồn                   | Cùng đơn vị đo lường (m², VND)                      |
+| Accuracy        | Dữ liệu phản ánh đúng thực tế                      | Diện tích > 0, giá > 0                              |
+| Validity        | Dữ liệu nằm trong phạm vi hợp lệ                   | Số phòng ngủ ∈ [0, 20], tuổi nhà ∈ [0, 200]        |
+| Uniqueness      | Không có bản ghi trùng lặp                          | Không có dòng giống hệt nhau                        |
+| Timeliness      | Dữ liệu được cập nhật đúng thời điểm               | Dataset không quá 6 tháng tuổi                      |
 
-### 4 trụ cột của MLOps
+### DVC (Data Version Control)
 
-1. **Data Management** — Quản lý phiên bản dữ liệu, kiểm tra chất lượng, lưu trữ metadata
-2. **Model Management** — Theo dõi thí nghiệm, đăng ký model, quản lý vòng đời model
-3. **Deployment** — Đóng gói model, triển khai API, CI/CD pipeline
-4. **Monitoring** — Giám sát hiệu năng model, phát hiện data drift, cảnh báo
+DVC là công cụ quản lý phiên bản dữ liệu và pipeline cho dự án ML, hoạt động tương tự Git nhưng dành cho file lớn và pipeline.
+
+Các file quan trọng:
+
+- **dvc.yaml** — Định nghĩa các bước trong pipeline, đầu vào và đầu ra
+- **params.yaml** — Tham số cấu hình được pipeline sử dụng
+- **dvc repro** — Lệnh chạy lại toàn bộ pipeline (chỉ chạy lại bước có thay đổi)
 
 ---
 
-## Cấu trúc thư mục dự án
+## Cấu trúc file mới thêm
 
 ```
 mlops-starter-repo/
-├── configs/
-│   └── params.yaml              # Tham số cấu hình cho toàn bộ pipeline
-├── data/
-│   ├── raw/
-│   │   └── houses.csv           # Dữ liệu thô ban đầu
-│   └── processed/               # Dữ liệu đã xử lý (train/val/test)
-├── docs/
-│   ├── architecture.md          # Sơ đồ kiến trúc hệ thống
-│   └── model-card.md            # Tài liệu mô tả model
-├── models/                      # Model đã huấn luyện (.pkl)
-├── notebooks/                   # Jupyter notebooks phân tích, thử nghiệm
-├── reports/
-│   └── evaluation.json          # Kết quả đánh giá model
-├── scripts/                     # Các script hỗ trợ (validate, promote, ...)
 ├── src/
 │   ├── ingestion/
-│   │   └── ingest.py            # Đọc dữ liệu thô
+│   │   └── ingest.py            # Đọc và chuẩn hóa dữ liệu thô
 │   ├── validation/
 │   │   └── validate.py          # Kiểm tra chất lượng dữ liệu
 │   ├── preprocessing/
-│   │   └── preprocess.py        # Tiền xử lý: encode, scale
-│   ├── split/
-│   │   └── split.py             # Chia train/val/test
-│   ├── training/
-│   │   └── train.py             # Huấn luyện model và log MLflow
-│   └── serving/
-│       └── app.py               # API phục vụ dự đoán
-├── tests/                       # Unit tests
-├── dvc.yaml                     # Pipeline DVC
-├── requirements.txt             # Thư viện Python cần thiết
-├── Dockerfile                   # Đóng gói ứng dụng
-└── README.md                    # Tài liệu tổng quan
+│   │   └── preprocess.py        # Mã hóa biến phân loại, chuẩn hóa biến số
+│   └── split/
+│       └── split.py             # Chia dữ liệu train/val/test
+├── tests/
+│   └── test_data.py             # Unit test cho data pipeline
+├── dvc.yaml                     # Định nghĩa pipeline DVC
+└── params.yaml                  # Tham số pipeline (symlink hoặc copy từ configs/)
 ```
 
 ---
 
 ## Hướng dẫn thực hành
 
-### Bước 1: Clone repository và cài đặt môi trường
+### Bước 1: Checkout branch
 
 ```powershell
-git clone <repository-url> mlops-starter-repo
-cd mlops-starter-repo
-
-python -m venv venv
-venv\Scripts\activate
-
-pip install -r requirements.txt
+git checkout -b session02-data-pipeline
 ```
 
-### Bước 2: Kiểm tra dataset
+### Bước 2: Chạy từng bước pipeline
 
-```python
-python -c "import pandas as pd; df = pd.read_csv('data/raw/houses.csv'); print(df.shape); print(df.head())"
-```
-
-Mô tả các cột trong dataset:
-
-| Cột        | Kiểu dữ liệu | Mô tả                                      | Ví dụ           |
-| ---------- | -------------- | -------------------------------------------- | ---------------- |
-| area       | float          | Diện tích nhà (m²)                           | 120.5            |
-| bedrooms   | int            | Số phòng ngủ                                 | 3                |
-| bathrooms  | int            | Số phòng tắm                                 | 2                |
-| age        | int            | Tuổi nhà (năm)                               | 10               |
-| garage     | int            | Số chỗ đỗ xe                                 | 1                |
-| location   | str            | Vị trí (quận/huyện)                          | District_1       |
-| price      | float          | Giá nhà (đơn vị tiền tệ) — biến mục tiêu    | 350000.0         |
-
-### Bước 3: Đọc architecture diagram
+**Bước 2a — Ingest (đọc dữ liệu thô)**
 
 ```powershell
-type docs\architecture.md
+python src/ingestion/ingest.py
 ```
 
-Sơ đồ kiến trúc mô tả luồng dữ liệu từ nguồn thô đến API phục vụ, bao gồm các thành phần: Data Pipeline, Training Pipeline, Model Registry, Serving API, và Monitoring.
+Kết quả: đọc `data/raw/houses.csv`, kiểm tra schema, lưu dữ liệu đã chuẩn hóa.
 
-### Bước 4: Viết project charter
-
-Tạo file `docs/project-charter.md` theo mẫu sau:
-
-```markdown
-# Project Charter — House Price Prediction
-
-## Tên dự án
-House Price Prediction
-
-## Mục tiêu kinh doanh
-Dự đoán giá nhà dựa trên các đặc trưng (diện tích, vị trí, ...) để hỗ trợ quyết định mua bán bất động sản.
-
-## Chỉ số thành công
-- RMSE < 30.000
-- R² > 0.60
-- Thời gian phản hồi API < 200ms (p95)
-
-## Phạm vi
-- Dữ liệu: file houses.csv (1000 bản ghi)
-- Model: GradientBoostingRegressor
-- Triển khai: REST API trên Docker
-
-## Rủi ro
-- Dữ liệu không đại diện cho thị trường thực tế
-- Data drift khi giá nhà biến động mạnh
-
-## Đội ngũ
-- ML Engineer: huấn luyện và đánh giá model
-- MLOps Engineer: triển khai và giám sát
-
-## Thời gian dự kiến
-8 buổi (4 tuần)
-```
-
-### Bước 5: Verify công cụ
+**Bước 2b — Validate (kiểm tra chất lượng)**
 
 ```powershell
-python --version
-git --version
-docker --version
+python src/validation/validate.py
 ```
 
-Đảm bảo kết quả trả về phiên bản hợp lệ cho cả 3 công cụ.
+Kết quả: kiểm tra 6 quy tắc chất lượng, in báo cáo PASS/FAIL cho từng quy tắc.
+
+**Bước 2c — Preprocess (tiền xử lý)**
+
+```powershell
+python src/preprocessing/preprocess.py
+```
+
+Kết quả: mã hóa cột `location` bằng LabelEncoder, chuẩn hóa biến số bằng StandardScaler, lưu encoder và scaler vào `models/`.
+
+**Bước 2d — Split (chia dữ liệu)**
+
+```powershell
+python src/split/split.py
+```
+
+Kết quả: chia thành train (70%), val (10%), test (20%) và lưu vào `data/processed/`.
+
+### Bước 3: Chạy toàn bộ pipeline một lệnh
+
+**Cách 1 — Python one-liner:**
+
+```powershell
+python -c "import subprocess; [subprocess.run(['python', f'src/{m}/{m.split('/')[-1]}.py'], check=True) for m in ['ingestion/ingest', 'validation/validate', 'preprocessing/preprocess', 'split/split']]"
+```
+
+**Cách 2 — DVC:**
+
+```powershell
+dvc repro
+```
+
+### Bước 4: Kiểm tra kết quả
+
+```powershell
+dir data\processed\
+
+python -c "import pandas as pd; [print(f'{f}: {len(pd.read_csv(f\"data/processed/{f}\"))} dòng') for f in ['train.csv', 'val.csv', 'test.csv']]"
+```
+
+Kết quả mong đợi (với 1000 bản ghi):
+
+| Tập dữ liệu | Tỷ lệ | Số dòng ước tính |
+| ------------ | ------ | ---------------- |
+| train.csv    | 70%    | ~700             |
+| val.csv      | 10%    | ~100             |
+| test.csv     | 20%    | ~200             |
+
+### Bước 5: Chạy tests
+
+```powershell
+pytest tests/test_data.py -v
+```
+
+Kết quả mong đợi: tất cả test case đều PASSED.
 
 ---
 
-## Cấu hình dự án
+## Chi tiết code
 
-Nội dung file `configs/params.yaml`:
+### `src/ingestion/ingest.py`
 
-```yaml
-data:
-  raw_path: data/raw/houses.csv
-  processed_dir: data/processed
-  test_size: 0.2
-  val_size: 0.1
-  random_state: 42
+Module này chịu trách nhiệm đọc dữ liệu thô từ file CSV. Các chức năng:
 
-features:
-  numeric:
-    - area
-    - bedrooms
-    - bathrooms
-    - age
-    - garage
-  categorical:
-    - location
-  target: price
+- Đọc file `data/raw/houses.csv` bằng `pandas.read_csv()`
+- Kiểm tra sự tồn tại của file
+- Xác nhận schema (danh sách cột) khớp với cấu hình
+- Chuyển đổi kiểu dữ liệu nếu cần
+- Trả về DataFrame đã chuẩn hóa
 
-preprocessing:
-  scaler: StandardScaler
-  encoder: LabelEncoder
+### `src/validation/validate.py`
 
-training:
-  model: GradientBoostingRegressor
-  params:
-    n_estimators: 200
-    max_depth: 5
-    learning_rate: 0.1
-    random_state: 42
-  experiment_name: house-price-prediction
+Module kiểm tra chất lượng dữ liệu theo 6 quy tắc:
 
-mlflow:
-  tracking_uri: http://localhost:5000
-  experiment_name: house-price-prediction
-```
+1. **Cột bắt buộc** — Kiểm tra tất cả cột cần thiết đều tồn tại
+2. **Kiểu số** — Các cột `area`, `bedrooms`, `bathrooms`, `age`, `garage`, `price` phải là kiểu số
+3. **Giá trị null** — Tỷ lệ null mỗi cột phải < 5%
+4. **Bản ghi trùng lặp** — Tỷ lệ trùng lặp phải < 1%
+5. **Phạm vi giá trị** — `area` ∈ (0, 10000], `bedrooms` ∈ [0, 20], `price` > 0
+6. **Vị trí hợp lệ** — Cột `location` chỉ chứa các giá trị trong danh sách cho phép
+
+### `src/preprocessing/preprocess.py`
+
+Module tiền xử lý dữ liệu:
+
+- **LabelEncoder** — Mã hóa cột `location` từ chuỗi sang số nguyên
+- **StandardScaler** — Chuẩn hóa các biến số về mean=0, std=1
+- Lưu encoder vào `models/label_encoder.pkl`
+- Lưu scaler vào `models/scaler.pkl`
+- Lưu dữ liệu đã xử lý với cột đã được mã hóa và chuẩn hóa
+
+### `src/split/split.py`
+
+Module chia dữ liệu thành 3 tập:
+
+- Lần 1: `train_test_split` với `test_size=0.2` → tách test set
+- Lần 2: `train_test_split` trên phần còn lại với `test_size=0.125` (= 10% tổng) → tách val set
+- Lưu `train.csv`, `val.csv`, `test.csv` vào `data/processed/`
+- Sử dụng `random_state=42` để kết quả tái tạo được
+
+---
+
+## Quy tắc Validation
+
+| #  | Quy tắc                  | Điều kiện                                                        | Kết quả nếu vi phạm      |
+| -- | ------------------------ | ---------------------------------------------------------------- | ------------------------- |
+| 1  | Cột bắt buộc             | Tất cả cột trong config phải tồn tại                            | FAIL — liệt kê cột thiếu |
+| 2  | Kiểu dữ liệu số         | Cột số phải có dtype là int hoặc float                           | FAIL — liệt kê cột sai   |
+| 3  | Giá trị null             | Tỷ lệ null mỗi cột < 5%                                        | FAIL — in tỷ lệ null     |
+| 4  | Bản ghi trùng lặp        | Tỷ lệ dòng trùng < 1%                                          | FAIL — in số dòng trùng  |
+| 5  | Phạm vi giá trị          | `area` > 0, `bedrooms` ≥ 0, `price` > 0                         | FAIL — in bản ghi sai    |
+| 6  | Vị trí hợp lệ            | `location` ∈ danh sách cho phép trong config                    | FAIL — in giá trị lạ     |
 
 ---
 
 ## Bài tập sau buổi học
 
-1. **Hoàn thiện project charter** — Bổ sung thêm phần "Giả định" và "Ràng buộc kỹ thuật" vào project charter.
-2. **Vẽ architecture diagram** — Sử dụng draw.io hoặc Mermaid vẽ lại kiến trúc hệ thống với đầy đủ các thành phần.
-3. **Khám phá dataset** — Viết một notebook phân tích thăm dò dữ liệu (EDA): thống kê mô tả, phân phối giá, tương quan giữa các biến.
-4. **So sánh MLOps tools** — Tìm hiểu và so sánh 3 nền tảng MLOps phổ biến (MLflow, Kubeflow, Vertex AI) theo bảng tiêu chí.
+1. **Thêm quy tắc validation** — Viết thêm kiểm tra: `bathrooms` ≤ `bedrooms`, `age` ≥ 0, phát hiện outlier bằng IQR.
+2. **Xử lý giá trị thiếu** — Thay vì chỉ kiểm tra null, hãy viết logic xử lý: điền median cho biến số, điền mode cho biến phân loại.
+3. **Version dữ liệu bằng DVC** — Khởi tạo DVC (`dvc init`), thêm `data/raw/houses.csv` vào DVC tracking, push lên remote storage.
+4. **Viết thêm test** — Bổ sung test case: kiểm tra tổng số dòng train + val + test = tổng dữ liệu gốc, kiểm tra không có rò rỉ dữ liệu giữa các tập.
 
 ---
 
 ## Buổi tiếp theo
 
-**Buổi 02 — Quản lý Dữ liệu và Data Pipeline**: Xây dựng pipeline hoàn chỉnh từ ingestion → validation → preprocessing → split. Sử dụng DVC để quản lý phiên bản dữ liệu và viết unit test cho từng bước trong pipeline.
+**Buổi 03 — Training và Experiment Tracking với MLflow**: Huấn luyện model GradientBoostingRegressor, sử dụng MLflow để ghi lại tham số, metrics và artifacts. So sánh nhiều lần chạy thí nghiệm để chọn model tốt nhất.
