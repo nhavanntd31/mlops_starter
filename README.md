@@ -1,81 +1,56 @@
-# Buổi 05 — Docker và FastAPI Model Serving
+# Buổi 06 — CI/CD và Quality Gate
 
 ## Mục tiêu buổi học
 
-- Xây dựng API serving với FastAPI: `/health`, `/predict`, `/model-info`
-- Hiểu 3 loại inference: batch, online, streaming
-- Đóng gói ứng dụng với Docker
-- Viết integration test cho API
+- Hiểu CI/CD/CT trong MLOps
+- Xây dựng GitLab CI pipeline: lint, test, validate config, build Docker image
+- Thiết lập quality gates tự động
+- Viết script validate config
 
 ---
 
 ## Kiến thức lý thuyết
 
-### 3 loại Inference
+### CI / CD / CT trong MLOps
 
-| Loại | Mô tả | Ví dụ | Đặc điểm |
-|------|--------|-------|-----------|
-| **Batch** | Xử lý hàng loạt dữ liệu theo lịch | Cron job chạy dự đoán mỗi đêm | Throughput cao, latency không quan trọng |
-| **Online** | Real-time REST API, trả kết quả ngay | Người dùng gửi request, nhận prediction | Low latency (< 200ms), đồng bộ |
-| **Streaming** | Event-driven, xử lý liên tục | Kafka consumer nhận event và dự đoán | Bất đồng bộ, throughput cao, near real-time |
+| Khái niệm | Giải thích | Ví dụ |
+|------------|------------|-------|
+| **CI** (Continuous Integration) | Mỗi commit tự động trigger lint + test | Push code → GitLab chạy `ruff check` + `pytest` |
+| **CD** (Continuous Delivery) | Tự động build Docker image, deploy lên staging | Merge vào `main` → build image → deploy staging |
+| **CT** (Continuous Training) | Tự động retrain khi dữ liệu thay đổi hoặc phát hiện drift | Data mới → trigger pipeline train → đánh giá → register model |
 
-### FastAPI
+### Quality Gate
 
-- Framework Python hiện đại, hỗ trợ **async/await**
-- Tự động sinh tài liệu API (Swagger UI tại `/docs`, ReDoc tại `/redoc`)
-- Validation dữ liệu đầu vào với **Pydantic**
-- Hiệu năng cao nhờ Starlette và Uvicorn (ASGI)
-- Type hints giúp code rõ ràng, dễ bảo trì
+Quality Gate là tập hợp các điều kiện **bắt buộc phải đạt** trước khi code được merge hoặc deploy:
 
-### Docker
+| Gate | Mô tả | Công cụ |
+|------|--------|---------|
+| Lint pass | Code tuân thủ coding style | `ruff` |
+| Tests pass | Tất cả unit/integration tests đều pass | `pytest` |
+| Config valid | File cấu hình đúng format, giá trị hợp lệ | `validate_config.py` |
+| Docker build OK | Image build thành công, app import được | `docker build` + smoke test |
+
+### GitLab CI — Các khái niệm chính
 
 | Khái niệm | Giải thích |
 |------------|------------|
-| **Image** | Bản thiết kế bất biến chứa code, dependencies, runtime |
-| **Container** | Thực thể đang chạy từ image, cô lập với hệ thống host |
-| **Dockerfile** | File kịch bản định nghĩa cách build image |
-| **Layer caching** | Mỗi lệnh trong Dockerfile tạo một layer; Docker cache layer không đổi để build nhanh hơn |
-
-### API Contract
-
-**Input** — `POST /predict`:
-```json
-{
-  "features": {
-    "area": 120.5,
-    "bedrooms": 3,
-    "location": "quan_7"
-  }
-}
-```
-
-**Output**:
-```json
-{
-  "prediction": 3250000000,
-  "latency_ms": 12.5,
-  "model_version": "1.0.0"
-}
-```
+| `.gitlab-ci.yml` | File cấu hình pipeline, đặt ở thư mục gốc |
+| **Stages** | Các giai đoạn chạy tuần tự: lint → test → validate → build |
+| **Jobs** | Các tác vụ trong mỗi stage, chạy song song nếu cùng stage |
+| **image** | Docker image dùng để chạy job (ví dụ: `python:3.11-slim`) |
+| **script** | Danh sách lệnh thực thi trong job |
+| **artifacts** | File kết quả lưu lại sau khi job chạy xong |
+| **rules** | Điều kiện để job được kích hoạt (ví dụ: chỉ chạy khi có MR) |
 
 ---
 
 ## Cấu trúc file mới thêm
 
 ```
-session-05-docker-fastapi/
-├── app/
-│   ├── main.py              # FastAPI app, endpoints, lifespan
-│   ├── schemas.py           # Pydantic models cho request/response
-│   ├── model_loader.py      # ModelHolder class, load từ MLflow
-│   └── predictors/
-│       └── tabular.py       # Logic dự đoán cho tabular data
-├── Dockerfile               # Đóng gói ứng dụng
-├── .dockerignore             # Loại trừ file không cần thiết
-├── tests/
-│   └── test_api.py          # Integration tests cho API
+session-06-ci-cd/
+├── .gitlab-ci.yml            # Pipeline CI/CD với 4 stages
 └── scripts/
-    └── sample_predict.py    # Script gửi request mẫu
+    └── validate_config.py    # Script kiểm tra file cấu hình
 ```
 
 ---
@@ -85,217 +60,239 @@ session-05-docker-fastapi/
 ### Bước 1: Checkout branch
 
 ```bash
-git checkout session-05-docker-fastapi
+git checkout session-06-ci-cd
 ```
 
-### Bước 2: Cài thêm dependencies
+### Bước 2: Đọc `.gitlab-ci.yml`
+
+Mở file và hiểu cấu trúc 4 stages:
+
+```
+stages:
+  - lint        # Kiểm tra coding style
+  - test        # Chạy unit tests
+  - validate    # Kiểm tra cấu hình
+  - build       # Build Docker image
+```
+
+### Bước 3: Chạy lint local
 
 ```bash
-pip install fastapi uvicorn httpx python-multipart
+pip install ruff
+ruff check app/ src/ tests/ scripts/
 ```
 
-### Bước 3: Chạy API local
+Nếu có lỗi, sửa theo gợi ý hoặc chạy tự động:
+```bash
+ruff check --fix app/ src/ tests/ scripts/
+```
+
+### Bước 4: Chạy tests local
 
 ```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+pytest tests/ -v --ignore=tests/test_api.py
 ```
 
-> **Lưu ý:** Model sẽ không load được nếu chưa có MLflow server đang chạy, nhưng endpoint `/health` vẫn hoạt động bình thường.
+> **Lưu ý:** Bỏ qua `test_api.py` vì cần API server đang chạy.
 
-### Bước 4: Test thủ công bằng trình duyệt hoặc curl
-
-Mở trình duyệt và truy cập **Swagger UI**:
-
-```
-http://localhost:8000/docs
-```
-
-Hoặc dùng curl:
+### Bước 5: Chạy validate config
 
 ```bash
-curl http://localhost:8000/health
+python scripts/validate_config.py
 ```
 
-### Bước 5: Test endpoint `/health`
+Kết quả mong đợi nếu tất cả hợp lệ:
+```
+[OK] configs/params.yaml — tất cả sections hợp lệ
+[OK] configs/thresholds.yaml — tất cả sections hợp lệ
+[OK] Đường dẫn dữ liệu raw tồn tại
+[OK] Tất cả tham số training hợp lệ
+✅ Tất cả kiểm tra đều PASS
+```
+
+### Bước 6: Build Docker image local
 
 ```bash
-curl -X GET http://localhost:8000/health
+docker build -t model-api:ci .
 ```
 
-Kết quả mong đợi:
-```json
-{
-  "status": "healthy",
-  "model_loaded": false
-}
+Smoke test — kiểm tra app import được:
+```bash
+docker run --rm model-api:ci python -c "import app.main"
 ```
 
-### Bước 6: Build Docker image
+### Bước 7: Push lên GitLab (nếu có)
 
 ```bash
-docker build -t house-price-api .
+git add .
+git commit -m "feat: thêm CI/CD pipeline"
+git push origin session-06-ci-cd
 ```
 
-### Bước 7: Chạy Docker container
-
-```bash
-docker run -p 8000:8000 house-price-api
-```
-
-Kiểm tra container đang chạy:
-```bash
-docker ps
-```
-
-### Bước 8: Chạy integration tests
-
-```bash
-pytest tests/test_api.py -v
-```
-
-### Bước 9: Dùng script gửi request mẫu
-
-```bash
-python scripts/sample_predict.py
-```
-
-Script sẽ gửi request đến `/predict` và in kết quả ra terminal.
+Sau khi push, mở GitLab → **CI/CD → Pipelines** để xem pipeline chạy.
 
 ---
 
 ## Chi tiết code
 
-### `app/schemas.py`
+### `.gitlab-ci.yml`
+
+```yaml
+stages:
+  - lint
+  - test
+  - validate
+  - build
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+cache:
+  paths:
+    - .cache/pip/
+
+lint:
+  stage: lint
+  image: python:3.11-slim
+  script:
+    - pip install ruff
+    - ruff check app/ src/ tests/ scripts/
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+test:
+  stage: test
+  image: python:3.11-slim
+  script:
+    - pip install -r requirements.txt
+    - pip install pytest
+    - pytest tests/ -v --ignore=tests/test_api.py
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+validate-config:
+  stage: validate
+  image: python:3.11-slim
+  script:
+    - pip install pyyaml
+    - python scripts/validate_config.py
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+docker-build:
+  stage: build
+  image: docker:24.0
+  services:
+    - docker:24.0-dind
+  script:
+    - docker build -t model-api:ci .
+    - docker run --rm model-api:ci python -c "import app.main"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+```
+
+**Giải thích:**
+- **lint**: Dùng `ruff` kiểm tra coding style cho tất cả thư mục code
+- **test**: Cài dependencies, chạy `pytest` (bỏ qua integration test)
+- **validate-config**: Chạy script kiểm tra file cấu hình
+- **docker-build**: Build image và chạy smoke test kiểm tra import thành công
+- **rules**: Pipeline chỉ chạy khi có Merge Request hoặc push vào `main`
+
+### `scripts/validate_config.py`
 
 ```python
-from pydantic import BaseModel
-from typing import Any, Optional
+import yaml
+import sys
+from pathlib import Path
 
-class PredictRequest(BaseModel):
-    features: dict[str, Any]
+def load_yaml(path: str) -> dict:
+    with open(path) as f:
+        return yaml.safe_load(f)
 
-class PredictResponse(BaseModel):
-    prediction: float
-    latency_ms: float
-    model_version: str
+def validate_params(config: dict):
+    required_sections = ["project", "data", "training"]
+    for section in required_sections:
+        assert section in config, f"Thiếu section '{section}' trong params.yaml"
 
-class HealthResponse(BaseModel):
-    status: str
-    model_loaded: bool
+    training = config["training"]
+    assert training.get("n_estimators", 0) >= 1, \
+        f"n_estimators phải >= 1, nhận được {training.get('n_estimators')}"
+    lr = training.get("learning_rate", 0)
+    assert 0 < lr <= 1, \
+        f"learning_rate phải trong khoảng (0, 1], nhận được {lr}"
 
-class ModelInfoResponse(BaseModel):
-    model_name: Optional[str]
-    model_version: Optional[str]
-    model_uri: Optional[str]
-    features_expected: Optional[list[str]]
+def validate_thresholds(config: dict):
+    required_sections = ["tabular", "serving"]
+    for section in required_sections:
+        assert section in config, f"Thiếu section '{section}' trong thresholds.yaml"
+
+def validate_data_path(config: dict):
+    raw_path = config.get("data", {}).get("raw_path", "")
+    assert Path(raw_path).exists(), \
+        f"Đường dẫn dữ liệu raw không tồn tại: {raw_path}"
+
+def main():
+    errors = []
+
+    try:
+        params = load_yaml("configs/params.yaml")
+        validate_params(params)
+        print("[OK] configs/params.yaml — tất cả sections hợp lệ")
+    except Exception as e:
+        errors.append(f"[FAIL] params.yaml: {e}")
+
+    try:
+        thresholds = load_yaml("configs/thresholds.yaml")
+        validate_thresholds(thresholds)
+        print("[OK] configs/thresholds.yaml — tất cả sections hợp lệ")
+    except Exception as e:
+        errors.append(f"[FAIL] thresholds.yaml: {e}")
+
+    try:
+        validate_data_path(params)
+        print("[OK] Đường dẫn dữ liệu raw tồn tại")
+    except Exception as e:
+        errors.append(f"[FAIL] data path: {e}")
+
+    print("[OK] Tất cả tham số training hợp lệ")
+
+    if errors:
+        print("\n❌ Có lỗi:")
+        for err in errors:
+            print(f"  {err}")
+        sys.exit(1)
+    else:
+        print("\n✅ Tất cả kiểm tra đều PASS")
+
+if __name__ == "__main__":
+    main()
 ```
 
-### `app/model_loader.py`
-
-```python
-import mlflow
-import time
-
-class ModelHolder:
-    def __init__(self):
-        self.model = None
-        self.model_name = None
-        self.model_version = None
-        self.model_uri = None
-
-    def load(self, model_uri: str):
-        self.model_uri = model_uri
-        self.model = mlflow.pyfunc.load_model(model_uri)
-        self.model_name = model_uri.split("/")[-1]
-
-    def predict(self, features: dict) -> tuple[float, float]:
-        import pandas as pd
-        start = time.perf_counter()
-        df = pd.DataFrame([features])
-        prediction = self.model.predict(df)[0]
-        latency_ms = (time.perf_counter() - start) * 1000
-        return float(prediction), latency_ms
-```
-
-### `app/main.py`
-
-```python
-from contextlib import asynccontextmanager
-from fastapi import FastAPI
-from app.schemas import PredictRequest, PredictResponse, HealthResponse, ModelInfoResponse
-from app.model_loader import ModelHolder
-import os
-
-model_holder = ModelHolder()
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    model_uri = os.getenv("MODEL_URI", "")
-    if model_uri:
-        model_holder.load(model_uri)
-    yield
-
-app = FastAPI(title="House Price Prediction API", lifespan=lifespan)
-
-@app.get("/health", response_model=HealthResponse)
-def health():
-    return HealthResponse(status="healthy", model_loaded=model_holder.model is not None)
-
-@app.post("/predict", response_model=PredictResponse)
-def predict(request: PredictRequest):
-    prediction, latency_ms = model_holder.predict(request.features)
-    return PredictResponse(
-        prediction=prediction,
-        latency_ms=latency_ms,
-        model_version=model_holder.model_version or "unknown",
-    )
-
-@app.get("/model-info", response_model=ModelInfoResponse)
-def model_info():
-    return ModelInfoResponse(
-        model_name=model_holder.model_name,
-        model_version=model_holder.model_version,
-        model_uri=model_holder.model_uri,
-        features_expected=None,
-    )
-```
-
-### `Dockerfile`
-
-```dockerfile
-FROM python:3.11-slim
-
-WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY app/ ./app/
-
-EXPOSE 8000
-
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-```
-
-- Dùng `python:3.11-slim` để giảm kích thước image
-- Copy `requirements.txt` trước để tận dụng **layer caching** (chỉ cài lại khi file thay đổi)
-- `EXPOSE 8000` khai báo cổng cho container
-- `CMD` chạy Uvicorn khi container khởi động
+**Kiểm tra bao gồm:**
+- `configs/params.yaml` có đủ sections: `project`, `data`, `training`
+- `configs/thresholds.yaml` có đủ sections: `tabular`, `serving`
+- Đường dẫn raw data tồn tại trên hệ thống
+- `n_estimators >= 1`
+- `0 < learning_rate <= 1`
 
 ---
 
 ## Bài tập sau buổi học
 
-1. **Thêm endpoint `/predict/batch`** — nhận danh sách nhiều mẫu dữ liệu, trả về danh sách prediction. Sử dụng `list[PredictRequest]` làm input.
+1. **Thêm stage `security-scan`** — thêm một job mới dùng `pip-audit` hoặc `safety` để quét lỗ hổng bảo mật trong dependencies. Đặt ở stage riêng giữa `test` và `validate`.
 
-2. **Thêm input validation** — trong `schemas.py`, thêm validator kiểm tra `features` không rỗng và các giá trị số phải dương. Dùng `@field_validator` của Pydantic v2.
+2. **Thêm kiểm tra thresholds chi tiết** — trong `validate_config.py`, kiểm tra thêm: `min_r2_score` phải nằm trong khoảng `[0, 1]`, `max_latency_ms` phải dương.
 
-3. **Viết thêm test cases** — trong `tests/test_api.py`, thêm test cho trường hợp: request thiếu field, request có giá trị âm, request body rỗng. Kiểm tra API trả về đúng mã lỗi (422).
+3. **Cấu hình artifacts** — chỉnh `.gitlab-ci.yml` để lưu kết quả test dưới dạng JUnit XML (`pytest --junitxml=report.xml`), sau đó dùng `artifacts:reports:junit` để GitLab hiển thị kết quả test trên giao diện MR.
 
-4. **Tối ưu Dockerfile** — thêm `.dockerignore` để loại trừ `__pycache__`, `.git`, `*.pyc`, `data/`. So sánh kích thước image trước và sau khi tối ưu.
+4. **Viết script `pre-commit` hook** — tạo script chạy `ruff check` và `validate_config.py` tự động mỗi khi developer commit. Đặt trong `.githooks/pre-commit`.
 
 ---
 
 ## Buổi tiếp theo
 
-**Buổi 06 — CI/CD và Quality Gate**: Xây dựng pipeline CI/CD tự động với GitLab CI, thiết lập quality gates (lint, test, validate config, build Docker), và viết script kiểm tra cấu hình dự án.
+**Buổi 07 — Monitoring, Metrics và Drift Detection**: Tích hợp Prometheus metrics vào FastAPI, thu thập logs với Loki + Promtail, viết script phát hiện data drift, và thiết lập alert rules.
