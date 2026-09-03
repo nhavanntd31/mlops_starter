@@ -12,7 +12,7 @@ def run(cmd):
 shutil.copy('session01-README.md', 'README.md')
 w('requirements.txt', 'pandas>=2.0\nscikit-learn>=1.3\nmlflow>=2.10\ndvc>=3.0\npyyaml>=6.0\n')
 w('configs/params.yaml', 'project:\n  name: house-price-prediction\n  version: "0.1.0"\n  random_seed: 42\n\ndata:\n  raw_path: data/raw/houses.csv\n  processed_dir: data/processed\n  test_size: 0.2\n  val_size: 0.1\n')
-w('docs/architecture.md', '# Ki\u1ebfn tr\u00fac h\u1ec7 th\u1ed1ng\n\nData Pipeline -> Training -> Registry -> Serving -> Monitoring -> E2E\n\nXem README.md \u0111\u1ec3 bi\u1ebft chi ti\u1ebft.\n')
+w('docs/architecture.md', '# Kiến trúc hệ thống\n\nData Pipeline -> Training -> Registry -> Serving -> Monitoring -> E2E\n\nXem README.md để biết chi tiết.\n')
 for d in ['data/interim','data/processed','models','reports','logs','src/ingestion','src/validation','src/preprocessing','src/split','src/training','app','app/predictors','tests','scripts','infra','infra/ansible','monitoring','monitoring/grafana/dashboards','monitoring/prometheus']:
     os.makedirs(d, exist_ok=True)
     gk = os.path.join(d, '.gitkeep')
@@ -20,7 +20,7 @@ for d in ['data/interim','data/processed','models','reports','logs','src/ingesti
         open(gk, 'w').close()
 
 run('git add -A')
-run('git commit --trailer "Co-authored-by: Cursor <cursoragent@cursor.com>" -m "session/01: c\u1ea5u tr\u00fac repo, README, requirements, configs"')
+run('git commit --trailer "Co-authored-by: Cursor <cursoragent@cursor.com>" -m "session/01: cấu trúc repo, README, requirements, configs"')
 
 # ===== SESSION 02 =====
 run('git checkout -b session/02')
@@ -299,7 +299,7 @@ def test_model_improves_over_mean():
 ''')
 
 run('git add -A')
-run('git commit --trailer "Co-authored-by: Cursor <cursoragent@cursor.com>" -m "session/03: training v\u1edbi MLflow, evaluation, tests"')
+run('git commit --trailer "Co-authored-by: Cursor <cursoragent@cursor.com>" -m "session/03: training với MLflow, evaluation, tests"')
 
 # ===== SESSION 04 =====
 run('git checkout -b session/04')
@@ -362,30 +362,30 @@ if __name__ == "__main__":
     promote(alias=alias)
 ''')
 
-w('docs/model-card.md', '''# Model Card \u2014 D\u1ef1 \u0111o\u00e1n Gi\u00e1 Nh\u00e0
+w('docs/model-card.md', '''# Model Card — Dự đoán Giá Nhà
 
-## Th\u00f4ng tin Model
-- **Lo\u1ea1i**: GradientBoostingRegressor (scikit-learn)
-- **B\u00e0i to\u00e1n**: H\u1ed3i quy b\u1ea3ng \u2014 d\u1ef1 \u0111o\u00e1n gi\u00e1 nh\u00e0 t\u1eeb c\u00e1c \u0111\u1eb7c tr\u01b0ng
-- **\u0110\u1eb7c tr\u01b0ng**: area, bedrooms, bathrooms, age, garage, location_encoded
-- **M\u1ee5c ti\u00eau**: price
+## Thông tin Model
+- **Loại**: GradientBoostingRegressor (scikit-learn)
+- **Bài toán**: Hồi quy bảng — dự đoán giá nhà từ các đặc trưng
+- **Đặc trưng**: area, bedrooms, bathrooms, age, garage, location_encoded
+- **Mục tiêu**: price
 
-## D\u1eef li\u1ec7u hu\u1ea5n luy\u1ec7n
-- Ngu\u1ed3n: data/raw/houses.csv (200 d\u00f2ng)
-- Chia t\u1eadp: 70% train, 10% val, 20% test
-- Ti\u1ec1n x\u1eed l\u00fd: LabelEncoder + StandardScaler
+## Dữ liệu huấn luyện
+- Nguồn: data/raw/houses.csv (200 dòng)
+- Chia tập: 70% train, 10% val, 20% test
+- Tiền xử lý: LabelEncoder + StandardScaler
 
-## Ng\u01b0\u1ee1ng ch\u1ea5t l\u01b0\u1ee3ng
-| Metric | Ng\u01b0\u1ee1ng | M\u00f4 t\u1ea3 |
+## Ngưỡng chất lượng
+| Metric | Ngưỡng | Mô tả |
 |--------|--------|-------|
-| RMSE | <= 30000 | Sai s\u1ed1 b\u00ecnh ph\u01b0\u01a1ng trung b\u00ecnh |
-| MAE | <= 20000 | Sai s\u1ed1 tuy\u1ec7t \u0111\u1ed1i trung b\u00ecnh |
-| R\u00b2 | >= 0.60 | H\u1ec7 s\u1ed1 x\u00e1c \u0111\u1ecbnh |
-| MAPE | <= 25% | Sai s\u1ed1 ph\u1ea7n tr\u0103m trung b\u00ecnh |
+| RMSE | <= 30000 | Sai số bình phương trung bình |
+| MAE | <= 20000 | Sai số tuyệt đối trung bình |
+| R² | >= 0.60 | Hệ số xác định |
+| MAPE | <= 25% | Sai số phần trăm trung bình |
 
-## H\u1ea1n ch\u1ebf
-- Dataset t\u1ed5ng h\u1ee3p, kh\u00f4ng \u0111\u1ea1i di\u1ec7n cho th\u1ecb tr\u01b0\u1eddng th\u1ef1c
-- K\u00edch th\u01b0\u1edbc m\u1eabu nh\u1ecf (200 d\u00f2ng)
+## Hạn chế
+- Dataset tổng hợp, không đại diện cho thị trường thực
+- Kích thước mẫu nhỏ (200 dòng)
 ''')
 
 run('git add -A')
@@ -486,21 +486,8 @@ def model_info():
     return ModelInfoResponse(model_name=model_holder.model_name, model_version=model_holder.model_version, features=model_holder.features)
 ''')
 
-dockerfile_content = "FROM python:3.11-slim
-
-WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY app/ ./app/
-
-EXPOSE 8000
-
-CMD [\"uvicorn\", \"app.main:app\", \"--host\", \"0.0.0.0\", \"--port\", \"8000\"]
-"
+dockerfile_content = "FROM python:3.11-slim\n\nWORKDIR /app\n\nCOPY requirements.txt .\nRUN pip install --no-cache-dir -r requirements.txt\n\nCOPY app/ ./app/\n\nEXPOSE 8000\n\nCMD [\"uvicorn\", \"app.main:app\", \"--host\", \"0.0.0.0\", \"--port\", \"8000\"]\n"
 w('Dockerfile', dockerfile_content)
-    && pip install --no-cache-dir fastapi uvicorn python-multipart httpx prometheus-client\n\nCOPY app/ ./app/\n\nEXPOSE 8000\n\nCMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]\n')
 
 w('.dockerignore', '.git\n.venv\nvenv\n__pycache__\n*.pyc\ndata/\nmodels/\nreports/\nlogs/\nmlruns/\nmlartifacts/\n.dvc/cache\n.dvc/tmp\ninfra/\nmonitoring/\ndocs/\ntests/\nscripts/\n*.md\n')
 
@@ -816,21 +803,21 @@ if __name__ == "__main__":
     generate_report()
 ''')
 
-w('docs/retraining-trigger.md', '''# Chi\u1ebfn l\u01b0\u1ee3c K\u00edch ho\u1ea1t Hu\u1ea5n luy\u1ec7n l\u1ea1i
+w('docs/retraining-trigger.md', '''# Chiến lược Kích hoạt Huấn luyện lại
 
-## Khi n\u00e0o c\u1ea7n hu\u1ea5n luy\u1ec7n l\u1ea1i?
-1. Ph\u00e1t hi\u1ec7n Data Drift
-2. Hi\u1ec7u su\u1ea5t Model gi\u1ea3m
-3. Theo l\u1ecbch (h\u00e0ng tu\u1ea7n/h\u00e0ng th\u00e1ng)
-4. C\u00f3 d\u1eef li\u1ec7u m\u1edbi \u0111\u00e1ng k\u1ec3
+## Khi nào cần huấn luyện lại?
+1. Phát hiện Data Drift
+2. Hiệu suất Model giảm
+3. Theo lịch (hàng tuần/hàng tháng)
+4. Có dữ liệu mới đáng kể
 
 ## Pipeline
-K\u00edch ho\u1ea1t -> K\u00e9o d\u1eef li\u1ec7u (DVC) -> Data pipeline -> Train -> Validate -> Register -> Promote -> Tri\u1ec3n khai l\u1ea1i
+Kích hoạt -> Kéo dữ liệu (DVC) -> Data pipeline -> Train -> Validate -> Register -> Promote -> Triển khai lại
 
 ## Rollback
-1. \u0110\u1eb7t alias v\u1ec1 phi\u00ean b\u1ea3n tr\u01b0\u1edbc
+1. Đặt alias về phiên bản trước
 2. Restart container
-3. \u0110i\u1ec1u tra nguy\u00ean nh\u00e2n
+3. Điều tra nguyên nhân
 ''')
 
 run('git add -A')
@@ -996,29 +983,29 @@ if __name__ == "__main__":
 
 w('scripts/run_e2e_demo.ps1', '''Write-Host "=== MLOps E2E Demo ==="
 Write-Host "
-[1/6] Kh\u1edfi \u0111\u1ed9ng stack..."
+[1/6] Khởi động stack..."
 Set-Location -Path (Split-Path C:\Users\datth\AppData\Local\Temp)
 Push-Location infra
 docker compose up -d --build
 Pop-Location
 Write-Host "
-[2/6] Ch\u1edd services..."
+[2/6] Chờ services..."
 Start-Sleep -Seconds 30
 Write-Host "
-[3/6] Ch\u1ea1y data pipeline..."
+[3/6] Chạy data pipeline..."
 python -c "from src.ingestion.ingest import ingest; from src.preprocessing.preprocess import preprocess; from src.split.split import split_data; df=ingest(); df=preprocess(df); split_data(df)"
 Write-Host "
 [4/6] Training model..."
 python src/training/train.py
 Write-Host "
-[5/6] \u0110\u0103ng k\u00fd model..."
+[5/6] Đăng ký model..."
 python scripts/register_best_model.py
 Write-Host "
 [6/6] Test API..."
 Start-Sleep -Seconds 10
 python scripts/sample_predict.py http://localhost:8000
 Write-Host "
-=== Ho\u00e0n t\u1ea5t! ==="
+=== Hoàn tất! ==="
 Write-Host "Grafana:    http://localhost:3000 (admin/admin)"
 Write-Host "MLflow:     http://localhost:5000"
 Write-Host "API:        http://localhost:8000/health"
@@ -1040,56 +1027,56 @@ run('git checkout master')
 run('git merge session/08 --no-ff -m "merge session/08 into main"')
 
 # Session 9-10 docs
-w('docs/ai-proposal.md', '''# M\u1eabu \u0110\u1ec1 xu\u1ea5t Gi\u1ea3i ph\u00e1p AI
+w('docs/ai-proposal.md', '''# Mẫu Đề xuất Giải pháp AI
 
-## 1. B\u00e0i to\u00e1n kinh doanh
-- C\u00f4ng ty/L\u0129nh v\u1ef1c: _____
-- M\u00f4 t\u1ea3 v\u1ea5n \u0111\u1ec1: _____
-- K\u1ebft qu\u1ea3 mong \u0111\u1ee3i: _____
+## 1. Bài toán kinh doanh
+- Công ty/Lĩnh vực: _____
+- Mô tả vấn đề: _____
+- Kết quả mong đợi: _____
 
-## 2. M\u1ee9c \u0111\u1ed9 s\u1eb5n s\u00e0ng d\u1eef li\u1ec7u
-| Ti\u00eau ch\u00ed | Tr\u1ea1ng th\u00e1i |
+## 2. Mức độ sẵn sàng dữ liệu
+| Tiêu chí | Trạng thái |
 |----------|-----------|
-| D\u1eef li\u1ec7u t\u1ed3n t\u1ea1i | C\u00f3/Kh\u00f4ng |
-| Ch\u1ea5t l\u01b0\u1ee3ng ch\u1ea5p nh\u1eadn | C\u00f3/Kh\u00f4ng |
-| \u0110\u1ee7 kh\u1ed1i l\u01b0\u1ee3ng | C\u00f3/Kh\u00f4ng |
+| Dữ liệu tồn tại | Có/Không |
+| Chất lượng chấp nhận | Có/Không |
+| Đủ khối lượng | Có/Không |
 
-## 3. \u0110\u00e1nh gi\u00e1 ROI
-- Chi ph\u00ed ph\u00e1t tri\u1ec3n: _____
-- Ti\u1ebft ki\u1ec7m k\u1ef3 v\u1ecdng: _____
-- Th\u1eddi gian ho\u00e0n v\u1ed1n: _____
+## 3. Đánh giá ROI
+- Chi phí phát triển: _____
+- Tiết kiệm kỳ vọng: _____
+- Thời gian hoàn vốn: _____
 
-## 4. L\u1ed9 tr\u00ecnh tri\u1ec3n khai
-| Giai \u0111o\u1ea1n | Th\u1eddi gian | S\u1ea3n ph\u1ea9m |
+## 4. Lộ trình triển khai
+| Giai đoạn | Thời gian | Sản phẩm |
 |-----------|-----------|----------|
-| PoC | 2-4 tu\u1ea7n | Model baseline |
-| MVP | 4-8 tu\u1ea7n | API + monitoring |
-| Production | 4-8 tu\u1ea7n | MLOps \u0111\u1ea7y \u0111\u1ee7 |
+| PoC | 2-4 tuần | Model baseline |
+| MVP | 4-8 tuần | API + monitoring |
+| Production | 4-8 tuần | MLOps đầy đủ |
 ''')
 
-w('docs/roadmap.md', '''# L\u1ed9 tr\u00ecnh Tri\u1ec3n khai MLOps
+w('docs/roadmap.md', '''# Lộ trình Triển khai MLOps
 
-## K\u1ebf ho\u1ea1ch 3 th\u00e1ng
-| Th\u00e1ng | Tr\u1ecdng t\u00e2m |
+## Kế hoạch 3 tháng
+| Tháng | Trọng tâm |
 |-------|-----------|
-| 1 | D\u1eef li\u1ec7u + Training |
+| 1 | Dữ liệu + Training |
 | 2 | Serving + CI/CD |
 | 3 | Monitoring + Governance |
 
-## S\u1ed5 \u0111\u0103ng k\u00fd R\u1ee7i ro
-| R\u1ee7i ro | Kh\u1ea3 n\u0103ng | T\u00e1c \u0111\u1ed9ng | Gi\u1ea3m thi\u1ec3u |
+## Sổ đăng ký Rủi ro
+| Rủi ro | Khả năng | Tác động | Giảm thiểu |
 |--------|----------|----------|-----------|
-| Suy gi\u1ea3m ch\u1ea5t l\u01b0\u1ee3ng d\u1eef li\u1ec7u | Trung b\u00ecnh | Cao | Validation t\u1ef1 \u0111\u1ed9ng |
-| Hi\u1ec7u su\u1ea5t model gi\u1ea3m | Trung b\u00ecnh | Cao | Quality gates, rollback |
+| Suy giảm chất lượng dữ liệu | Trung bình | Cao | Validation tự động |
+| Hiệu suất model giảm | Trung bình | Cao | Quality gates, rollback |
 
-## Ch\u1ec9 s\u1ed1 th\u00e0nh c\u00f4ng
-- R\u00b2 >= 0.60
-- \u0110\u1ed9 tr\u1ec5 API p95 < 200ms
-- Ph\u00e1t hi\u1ec7n drift trong 24 gi\u1edd
+## Chỉ số thành công
+- R² >= 0.60
+- Độ trễ API p95 < 200ms
+- Phát hiện drift trong 24 giờ
 ''')
 
 run('git add -A')
-run('git commit --trailer "Co-authored-by: Cursor <cursoragent@cursor.com>" -m "docs: \u0111\u1ec1 xu\u1ea5t AI v\u00e0 l\u1ed9 tr\u00ecnh tri\u1ec3n khai (bu\u1ed5i 9-10)"')
+run('git commit --trailer "Co-authored-by: Cursor <cursoragent@cursor.com>" -m "docs: đề xuất AI và lộ trình triển khai (buổi 9-10)"')
 
 run('git log --oneline --all --graph')
 print('\n=== DONE ===')

@@ -1,85 +1,70 @@
-# Buổi 07 — Monitoring, Metrics và Drift Detection
+# Buổi 08 — Tích hợp End-to-End với Docker Compose
 
 ## Mục tiêu buổi học
 
-- Instrument FastAPI với Prometheus metrics
-- Thu thập logs có cấu trúc (JSON logging)
-- Cấu hình Prometheus scrape metrics
-- Cấu hình Loki + Promtail thu thập logs
-- Viết script phát hiện data drift
-- Thiết lập alert rules
+- Tích hợp tất cả thành phần vào một stack duy nhất bằng Docker Compose
+- Khởi động toàn bộ hệ thống bằng một lệnh
+- Chạy full flow: train → register → predict → monitor
+- Hiểu Ansible (optional) cho Infrastructure as Code
 
 ---
 
 ## Kiến thức lý thuyết
 
-### 3 tầng Monitoring
+### Docker Compose
 
-| Tầng | Mô tả | Ví dụ metrics |
-|------|--------|---------------|
-| **Service metrics** | Giám sát hiệu năng hệ thống | Latency (p50, p95, p99), error rate, throughput (req/s) |
-| **ML metrics** | Giám sát chất lượng mô hình | Accuracy, R², drift score, prediction distribution |
-| **Business metrics** | Giám sát tác động kinh doanh | Conversion rate, revenue, số lượng dự đoán sai ảnh hưởng nghiệp vụ |
+- Công cụ **orchestrate** ứng dụng đa container
+- Định nghĩa tất cả services trong một file `docker-compose.yml`
+- Quản lý networks, volumes, dependencies giữa các services
+- Khởi động/dừng toàn bộ stack bằng một lệnh duy nhất
 
-### Prometheus
+### Các service trong stack
 
-- **Pull-based**: Prometheus chủ động kéo (scrape) metrics từ các endpoint `/metrics`
-- **Time-series DB**: Lưu trữ dữ liệu dạng chuỗi thời gian
-- **PromQL**: Ngôn ngữ truy vấn mạnh mẽ (ví dụ: `rate(request_count[5m])`)
-- **Alerting**: Định nghĩa rules, khi điều kiện thỏa mãn → gửi cảnh báo qua Alertmanager
+| Service | Vai trò |
+|---------|---------|
+| **PostgreSQL** | Backend store cho MLflow (lưu metadata experiments, runs, metrics) |
+| **MinIO** | S3-compatible object storage (lưu artifacts: model files, plots) |
+| **MLflow Server** | Tracking server kết nối PostgreSQL + MinIO |
+| **Model API** | FastAPI serving predictions, expose `/health`, `/predict`, `/metrics` |
+| **Prometheus** | Thu thập và lưu trữ metrics từ Model API |
+| **Loki** | Thu thập và lưu trữ logs tập trung |
+| **Promtail** | Agent đọc log files và đẩy vào Loki |
+| **Grafana** | Dashboard hiển thị metrics và logs |
 
-### Loki
+### Service Dependencies và Health Checks
 
-- **Log aggregation**: Thu thập và lưu trữ logs tập trung
-- **LogQL**: Ngôn ngữ truy vấn logs (tương tự PromQL)
-- Kết hợp với **Grafana** để hiển thị logs trực quan
-- Không index nội dung log (chỉ index labels) → tiết kiệm tài nguyên
+```
+PostgreSQL ──┐
+             ├── MLflow Server ── Model API ── Prometheus
+MinIO ───────┘                                     │
+                                    Loki ── Promtail
+                                     │
+                                   Grafana
+```
 
-### Promtail
+- MLflow phụ thuộc PostgreSQL + MinIO (phải healthy trước)
+- Model API phụ thuộc MLflow (để load model)
+- Grafana kết nối Prometheus + Loki làm data sources
 
-- Agent chạy trên mỗi máy, đọc file log và đẩy vào Loki
-- Cấu hình đường dẫn log, labels, và parsing rules
-- Hỗ trợ pipeline stages: regex, json, labels, timestamp
+### Infrastructure as Code (IaC) — Ansible (optional)
 
-### Grafana
-
-- Nền tảng visualization dashboards
-- Hỗ trợ nhiều data sources: Prometheus, Loki, PostgreSQL, ...
-- Tạo dashboard với nhiều panel: graph, stat, table, logs
-
-### Các loại Drift
-
-| Loại Drift | Mô tả | Phương pháp phát hiện |
-|------------|--------|----------------------|
-| **Data Drift** | Phân phối input thay đổi theo thời gian | So sánh thống kê: z-score, KS test, PSI |
-| **Model Drift** | Performance mô hình giảm dần | Theo dõi metrics: R², MAE, RMSE theo thời gian |
-| **Concept Drift** | Mối quan hệ giữa input và output thay đổi | So sánh prediction distribution, cần ground truth |
-
-### Delayed Evaluation
-
-Trong nhiều bài toán, **ground truth đến muộn** so với thời điểm dự đoán:
-
-- **Ví dụ**: Dự đoán giá nhà hôm nay, nhưng giá bán thực tế chỉ biết sau 3 tháng
-- **Hệ quả**: Không thể tính accuracy ngay → phải dùng proxy metrics hoặc data drift để giám sát tạm thời
-- **Chiến lược**: Khi có ground truth → tính metrics thực tế → quyết định retrain
+- **Ansible**: công cụ tự động hóa cấu hình server
+- Dùng YAML playbooks để mô tả trạng thái mong muốn
+- Không cần agent trên máy đích (agentless, dùng SSH)
+- Ứng dụng: cài Docker, deploy stack lên server remote
 
 ---
 
 ## Cấu trúc file mới thêm
 
 ```
-session-07-monitoring/
-├── app/
-│   └── metrics.py                        # PrometheusMiddleware, Counter, Histogram
+session-08-docker-compose/
 ├── infra/
-│   ├── prometheus.yml                    # Cấu hình Prometheus scrape
-│   └── promtail.yml                      # Cấu hình Promtail đọc logs
-├── monitoring/
-│   ├── prometheus/
-│   │   └── alerts.yml                    # Alert rules
-│   └── generate_drift_report.py          # Script phát hiện data drift
-└── docs/
-    └── retraining-trigger.md             # Tài liệu chiến lược retrain
+│   └── docker-compose.yml        # Định nghĩa toàn bộ stack
+├── .env.example                   # Biến môi trường mẫu
+└── scripts/
+    ├── run_e2e_demo.ps1           # Script chạy demo end-to-end (PowerShell)
+    └── register_best_model.py     # Đăng ký model tốt nhất vào MLflow Registry
 ```
 
 ---
@@ -89,311 +74,333 @@ session-07-monitoring/
 ### Bước 1: Checkout branch
 
 ```bash
-git checkout session-07-monitoring
+git checkout session-08-docker-compose
 ```
 
-### Bước 2: Xem `app/metrics.py`
+### Bước 2: Chuẩn bị file `.env`
 
-Hiểu cách tích hợp Prometheus với FastAPI:
-- `PrometheusMiddleware`: middleware tự động đo latency và đếm request
-- `Counter`: đếm số lần xảy ra sự kiện (ví dụ: tổng request, tổng prediction)
-- `Histogram`: đo phân phối giá trị (ví dụ: latency theo percentile)
-
-### Bước 3: Chạy API local và kiểm tra metrics
-
-```bash
-uvicorn app.main:app --reload --port 8000
+```powershell
+Copy-Item .env.example .env
 ```
 
-Gửi vài request rồi truy cập endpoint metrics:
-```bash
-curl http://localhost:8000/metrics
+Mở `.env` và điều chỉnh nếu cần:
+```env
+POSTGRES_USER=mlflow
+POSTGRES_PASSWORD=mlflow123
+POSTGRES_DB=mlflow_db
+MINIO_ROOT_USER=minioadmin
+MINIO_ROOT_PASSWORD=minioadmin
+MLFLOW_TRACKING_URI=http://mlflow:5000
+MLFLOW_S3_ENDPOINT_URL=http://minio:9000
+AWS_ACCESS_KEY_ID=minioadmin
+AWS_SECRET_ACCESS_KEY=minioadmin
 ```
 
-Kết quả sẽ hiển thị dạng Prometheus exposition format:
-```
-# HELP request_count_total Tổng số request
-# TYPE request_count_total counter
-request_count_total{method="GET",endpoint="/health",status="200"} 3.0
-...
-```
+### Bước 3: Đọc `docker-compose.yml`
 
-### Bước 4: Xem cấu hình Prometheus
+Hiểu từng service và cách chúng kết nối:
 
-Mở file `infra/prometheus.yml`:
-```yaml
-global:
-  scrape_interval: 15s
+| Service | Image | Port | Mô tả | Health check |
+|---------|-------|------|--------|-------------|
+| `postgres` | `postgres:15` | `5432` | Backend store MLflow | `pg_isready` |
+| `minio` | `minio/minio` | `9000`, `9001` | Artifact storage (API + Console) | `curl /minio/health/live` |
+| `mlflow` | `ghcr.io/mlflow/mlflow` | `5000` | Tracking server | `curl /health` |
+| `model-api` | build từ `Dockerfile` | `8000` | FastAPI prediction API | `curl /health` |
+| `prometheus` | `prom/prometheus` | `9090` | Metrics collection | `curl /-/healthy` |
+| `loki` | `grafana/loki` | `3100` | Log aggregation | `curl /ready` |
+| `promtail` | `grafana/promtail` | — | Đẩy logs vào Loki | — |
+| `grafana` | `grafana/grafana` | `3000` | Dashboards | `curl /api/health` |
 
-scrape_configs:
-  - job_name: "model-api"
-    static_configs:
-      - targets: ["model-api:8000"]
+### Bước 4: Khởi động stack
 
-rule_files:
-  - "/etc/prometheus/alerts.yml"
+```powershell
+cd infra
+docker compose up -d --build
 ```
 
-### Bước 5: Xem alert rules
-
-Mở file `monitoring/prometheus/alerts.yml` — có 2 rules:
-
-| Alert | Điều kiện | Thời gian chờ |
-|-------|-----------|--------------|
-| **HighErrorRate** | Tỷ lệ lỗi > 1% | Liên tục trong 2 phút |
-| **HighLatency** | p95 latency > 200ms | Liên tục trong 2 phút |
-
-### Bước 6: Chạy drift report
-
-```bash
-python monitoring/generate_drift_report.py
+Theo dõi logs:
+```powershell
+docker compose logs -f
 ```
 
-Xem kết quả:
-```bash
-type monitoring\reports\drift_report.json
+### Bước 5: Kiểm tra services
+
+```powershell
+docker compose ps
 ```
 
-Kết quả mẫu:
-```json
-{
-  "generated_at": "2025-01-15T10:30:00",
-  "features_analyzed": 5,
-  "drifted_features": ["area", "location_encoded"],
-  "details": {
-    "area": {"z_score": 3.2, "drifted": true},
-    "bedrooms": {"z_score": 0.5, "drifted": false}
-  }
-}
+Kiểm tra từng endpoint:
+```powershell
+curl http://localhost:8000/health
+curl http://localhost:5000/health
+curl http://localhost:9090/-/healthy
+curl http://localhost:3100/ready
 ```
 
-### Bước 7: Đọc tài liệu chiến lược retrain
+### Bước 6: Chạy data pipeline + train
 
-Mở `docs/retraining-trigger.md` — mô tả:
-- Khi nào cần retrain (drift phát hiện, performance giảm, dữ liệu mới đủ lớn)
-- Quy trình retrain tự động (CT pipeline)
-- Rollback strategy nếu model mới kém hơn
+```powershell
+python src/data/make_dataset.py
+python src/features/build_features.py
+python src/models/train_model.py
+```
+
+### Bước 7: Register model
+
+```powershell
+python scripts/register_best_model.py
+```
+
+Script sẽ:
+- Tìm run có R² cao nhất trong MLflow
+- Đăng ký model vào MLflow Model Registry
+- Chuyển model sang stage "Production"
+
+### Bước 8: Test API
+
+```powershell
+python scripts/sample_predict.py http://localhost:8000
+```
+
+Hoặc dùng curl:
+```powershell
+curl -X POST http://localhost:8000/predict -H "Content-Type: application/json" -d "{\"features\": {\"area\": 120.5, \"bedrooms\": 3}}"
+```
+
+### Bước 9: Mở Grafana
+
+1. Truy cập: **http://localhost:3000**
+2. Đăng nhập: `admin` / `admin`
+3. Thêm data source **Prometheus**: URL = `http://prometheus:9090`
+4. Thêm data source **Loki**: URL = `http://loki:3100`
+5. Tạo dashboard mới hoặc import từ template
+
+### Bước 10: Chạy E2E demo tự động
+
+```powershell
+.\scripts\run_e2e_demo.ps1
+```
+
+Script thực hiện toàn bộ flow tự động:
+1. Khởi động stack
+2. Chờ services healthy
+3. Chạy data pipeline
+4. Train model
+5. Register model
+6. Gửi prediction requests
+7. Kiểm tra metrics endpoint
+8. In kết quả tổng hợp
 
 ---
 
-## Chi tiết code
+## Bảng service và port
 
-### `app/metrics.py`
+| Service | Image | Port(s) | Mô tả | URL kiểm tra |
+|---------|-------|---------|--------|--------------|
+| PostgreSQL | `postgres:15` | `5432` | MLflow backend store | — |
+| MinIO | `minio/minio` | `9000` (API), `9001` (Console) | S3-compatible storage | `http://localhost:9001` |
+| MLflow | `ghcr.io/mlflow/mlflow` | `5000` | Experiment tracking | `http://localhost:5000` |
+| Model API | build local | `8000` | Prediction serving | `http://localhost:8000/docs` |
+| Prometheus | `prom/prometheus` | `9090` | Metrics DB | `http://localhost:9090` |
+| Loki | `grafana/loki` | `3100` | Log aggregation | — |
+| Promtail | `grafana/promtail` | — | Log shipping agent | — |
+| Grafana | `grafana/grafana` | `3000` | Visualization | `http://localhost:3000` |
 
-```python
-from prometheus_client import Counter, Histogram, generate_latest
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
-from starlette.responses import Response
-import time
+---
 
-REQUEST_COUNT = Counter(
-    "request_count",
-    "Tổng số HTTP request",
-    ["method", "endpoint", "status"],
-)
+## Chi tiết `docker-compose.yml`
 
-REQUEST_LATENCY = Histogram(
-    "request_latency_seconds",
-    "Latency của HTTP request (giây)",
-    ["method", "endpoint"],
-    buckets=[0.01, 0.025, 0.05, 0.1, 0.2, 0.5, 1.0],
-)
-
-PREDICTION_COUNT = Counter(
-    "prediction_count",
-    "Tổng số lần gọi prediction",
-)
-
-PREDICTION_LATENCY = Histogram(
-    "prediction_latency_seconds",
-    "Latency của prediction (giây)",
-    buckets=[0.005, 0.01, 0.025, 0.05, 0.1, 0.25],
-)
-
-class PrometheusMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        start = time.perf_counter()
-        response = await call_next(request)
-        latency = time.perf_counter() - start
-
-        REQUEST_COUNT.labels(
-            method=request.method,
-            endpoint=request.url.path,
-            status=response.status_code,
-        ).inc()
-
-        REQUEST_LATENCY.labels(
-            method=request.method,
-            endpoint=request.url.path,
-        ).observe(latency)
-
-        return response
-
-async def metrics_endpoint(request: Request) -> Response:
-    return Response(
-        content=generate_latest(),
-        media_type="text/plain",
-    )
-```
-
-### `app/main.py` — cập nhật
-
-Thêm middleware và JSON logging:
-
-```python
-import logging
-import json
-
-logging.basicConfig(
-    filename="logs/app.log",
-    level=logging.INFO,
-    format="%(message)s",
-)
-
-app.add_middleware(PrometheusMiddleware)
-app.add_route("/metrics", metrics_endpoint)
-
-@app.post("/predict", response_model=PredictResponse)
-def predict(request: PredictRequest):
-    prediction, latency_ms = model_holder.predict(request.features)
-
-    logging.info(json.dumps({
-        "event": "prediction",
-        "features": request.features,
-        "prediction": prediction,
-        "latency_ms": latency_ms,
-        "model_version": model_holder.model_version,
-    }))
-
-    PREDICTION_COUNT.inc()
-    PREDICTION_LATENCY.observe(latency_ms / 1000)
-
-    return PredictResponse(
-        prediction=prediction,
-        latency_ms=latency_ms,
-        model_version=model_holder.model_version or "unknown",
-    )
-```
-
-### `monitoring/generate_drift_report.py`
-
-```python
-import json
-import numpy as np
-from datetime import datetime
-from pathlib import Path
-
-def compute_stats(values: list[float]) -> dict:
-    return {
-        "mean": float(np.mean(values)),
-        "std": float(np.std(values)),
-        "min": float(np.min(values)),
-        "max": float(np.max(values)),
-    }
-
-def detect_drift(
-    baseline_mean: float,
-    baseline_std: float,
-    current_mean: float,
-    threshold: float = 2.0,
-) -> tuple[float, bool]:
-    if baseline_std == 0:
-        return 0.0, False
-    z_score = abs(current_mean - baseline_mean) / baseline_std
-    return z_score, z_score > threshold
-
-def generate_report(
-    baseline_data: dict[str, list[float]],
-    current_data: dict[str, list[float]],
-    output_path: str = "monitoring/reports/drift_report.json",
-):
-    details = {}
-    drifted_features = []
-
-    for feature in baseline_data:
-        baseline_stats = compute_stats(baseline_data[feature])
-        current_stats = compute_stats(current_data[feature])
-
-        z_score, drifted = detect_drift(
-            baseline_stats["mean"],
-            baseline_stats["std"],
-            current_stats["mean"],
-        )
-
-        details[feature] = {
-            "baseline": baseline_stats,
-            "current": current_stats,
-            "z_score": round(z_score, 4),
-            "drifted": drifted,
-        }
-
-        if drifted:
-            drifted_features.append(feature)
-
-    report = {
-        "generated_at": datetime.now().isoformat(),
-        "features_analyzed": len(baseline_data),
-        "drifted_features": drifted_features,
-        "details": details,
-    }
-
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "w") as f:
-        json.dump(report, f, indent=2)
-
-    print(f"📊 Báo cáo drift đã được tạo: {output_path}")
-    print(f"   Tổng features phân tích: {len(baseline_data)}")
-    print(f"   Features bị drift: {drifted_features or 'Không có'}")
-
-    return report
-```
-
-### `monitoring/prometheus/alerts.yml`
+### PostgreSQL
 
 ```yaml
-groups:
-  - name: model-api-alerts
-    rules:
-      - alert: HighErrorRate
-        expr: |
-          (
-            sum(rate(request_count{status=~"5.."}[2m]))
-            /
-            sum(rate(request_count[2m]))
-          ) > 0.01
-        for: 2m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Tỷ lệ lỗi API cao"
-          description: "Tỷ lệ lỗi 5xx vượt quá 1% trong 2 phút qua"
-
-      - alert: HighLatency
-        expr: |
-          histogram_quantile(0.95, rate(request_latency_seconds_bucket[2m])) > 0.2
-        for: 2m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Latency API cao"
-          description: "P95 latency vượt quá 200ms trong 2 phút qua"
+postgres:
+  image: postgres:15
+  environment:
+    POSTGRES_USER: ${POSTGRES_USER}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    POSTGRES_DB: ${POSTGRES_DB}
+  volumes:
+    - postgres_data:/var/lib/postgresql/data
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+    interval: 10s
+    timeout: 5s
+    retries: 5
 ```
+
+Lưu trữ metadata của MLflow: experiments, runs, params, metrics.
+
+### MinIO
+
+```yaml
+minio:
+  image: minio/minio
+  command: server /data --console-address ":9001"
+  environment:
+    MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+    MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+  ports:
+    - "9000:9000"
+    - "9001:9001"
+  volumes:
+    - minio_data:/data
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+    interval: 10s
+    timeout: 5s
+    retries: 5
+```
+
+S3-compatible storage cho MLflow artifacts (model files, plots, ...).
+
+### MLflow Server
+
+```yaml
+mlflow:
+  image: ghcr.io/mlflow/mlflow
+  command: >
+    mlflow server
+    --backend-store-uri postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    --default-artifact-root s3://mlflow-artifacts/
+    --host 0.0.0.0
+    --port 5000
+  environment:
+    MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+    AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+    AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+  ports:
+    - "5000:5000"
+  depends_on:
+    postgres:
+      condition: service_healthy
+    minio:
+      condition: service_healthy
+```
+
+Kết nối PostgreSQL (backend) + MinIO (artifacts). Chỉ khởi động sau khi cả hai healthy.
+
+### Model API
+
+```yaml
+model-api:
+  build:
+    context: ..
+    dockerfile: Dockerfile
+  environment:
+    MODEL_URI: ${MODEL_URI:-}
+    MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI}
+  ports:
+    - "8000:8000"
+  volumes:
+    - api_logs:/app/logs
+  depends_on:
+    mlflow:
+      condition: service_healthy
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+    interval: 10s
+    timeout: 5s
+    retries: 5
+```
+
+FastAPI app serving predictions. Mount volume `api_logs` để Promtail đọc logs.
+
+### Prometheus
+
+```yaml
+prometheus:
+  image: prom/prometheus
+  volumes:
+    - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    - ../monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml
+    - prometheus_data:/prometheus
+  ports:
+    - "9090:9090"
+  depends_on:
+    model-api:
+      condition: service_healthy
+```
+
+Scrape metrics từ Model API mỗi 15 giây, lưu time-series data.
+
+### Loki
+
+```yaml
+loki:
+  image: grafana/loki:2.9.0
+  ports:
+    - "3100:3100"
+  volumes:
+    - loki_data:/loki
+```
+
+Nhận và lưu trữ logs từ Promtail.
+
+### Promtail
+
+```yaml
+promtail:
+  image: grafana/promtail:2.9.0
+  volumes:
+    - ./promtail.yml:/etc/promtail/config.yml
+    - api_logs:/var/log/app:ro
+  depends_on:
+    - loki
+```
+
+Đọc log files từ volume `api_logs` và đẩy vào Loki.
+
+### Grafana
+
+```yaml
+grafana:
+  image: grafana/grafana
+  ports:
+    - "3000:3000"
+  environment:
+    GF_SECURITY_ADMIN_USER: admin
+    GF_SECURITY_ADMIN_PASSWORD: admin
+  volumes:
+    - grafana_data:/var/lib/grafana
+  depends_on:
+    - prometheus
+    - loki
+```
+
+Dashboard hiển thị metrics (Prometheus) và logs (Loki).
+
+### Networks và Volumes
+
+```yaml
+networks:
+  default:
+    name: mlops-network
+
+volumes:
+  postgres_data:
+  minio_data:
+  prometheus_data:
+  loki_data:
+  grafana_data:
+  api_logs:
+```
+
+Tất cả services cùng network `mlops-network`, giao tiếp qua tên service. Volumes persist dữ liệu giữa các lần restart.
 
 ---
 
 ## Bài tập sau buổi học
 
-1. **Thêm metric cho model confidence** — tạo thêm Histogram `prediction_confidence` để theo dõi phân phối độ tin cậy của mô hình. Cập nhật endpoint `/predict` để trả về và ghi nhận confidence score.
+1. **Thêm service Alertmanager** — thêm `alertmanager` vào `docker-compose.yml`, cấu hình nhận alerts từ Prometheus và gửi thông báo (email hoặc Slack webhook). Test bằng cách tạo tình huống HighErrorRate.
 
-2. **Cấu hình Grafana dashboard** — tạo file JSON cho Grafana dashboard hiển thị: request rate, latency p95, error rate, prediction distribution. Import vào Grafana và chụp ảnh kết quả.
+2. **Tạo Grafana dashboard tự động** — viết file JSON provisioning cho Grafana dashboard, mount vào container. Dashboard hiển thị: request rate, latency p95, error rate, prediction count. Khi Grafana khởi động sẽ tự động có dashboard.
 
-3. **Mở rộng drift detection** — thêm phương pháp KS test (Kolmogorov-Smirnov) bên cạnh z-score trong `generate_drift_report.py`. So sánh kết quả hai phương pháp.
+3. **Viết script health check toàn bộ stack** — tạo `scripts/check_stack_health.py` kiểm tra tất cả services (curl health endpoint), in bảng trạng thái, exit code = 1 nếu có service nào fail.
 
-4. **Viết alert cho model drift** — thêm rule trong `alerts.yml` cảnh báo khi `prediction_latency` tăng đột biến (> 500ms) hoặc khi tỷ lệ prediction có giá trị bất thường (ngoài khoảng mong đợi).
+4. **Thêm auto-scaling cho Model API** — nghiên cứu và cấu hình `deploy.replicas` trong Docker Compose hoặc dùng `docker compose up --scale model-api=3`. Test load balancing bằng cách gửi nhiều request đồng thời.
 
 ---
 
 ## Buổi tiếp theo
 
-**Buổi 08 — Tích hợp End-to-End với Docker Compose**: Tích hợp tất cả thành phần (PostgreSQL, MinIO, MLflow, FastAPI, Prometheus, Loki, Promtail, Grafana) vào một stack duy nhất bằng Docker Compose. Khởi động toàn bộ hệ thống bằng một lệnh và chạy full flow: train → register → predict → monitor.
+**Buổi 09 — Phân tích Bài toán AI Doanh nghiệp**: Chuyển từ kỹ thuật sang tư duy sản phẩm — phân tích bài toán kinh doanh, xác định bài toán ML phù hợp, thiết kế hệ thống AI cho doanh nghiệp, và trình bày kế hoạch triển khai.
