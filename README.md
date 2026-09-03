@@ -1,82 +1,82 @@
-# Buổi 03 — Training và Experiment Tracking với MLflow
+# Buổi 04 — Model Registry và Governance
 
 ## Mục tiêu buổi học
 
-- Huấn luyện model GradientBoostingRegressor trên dữ liệu đã xử lý
-- Hiểu và sử dụng MLflow để theo dõi thí nghiệm: params, metrics, artifacts
-- So sánh nhiều lần chạy (run) để chọn model tốt nhất
-- Viết báo cáo đánh giá (evaluation report) tự động
-- Viết unit test cho training pipeline
+- Đăng ký model vào MLflow Model Registry
+- Hiểu vòng đời model: Candidate → Staging → Production
+- Viết automated validation pipeline (kiểm tra metrics so với ngưỡng)
+- Thực hiện promote và rollback phiên bản model
+- Viết Model Card cho model
 
 ---
 
 ## Kiến thức lý thuyết
 
-### Tại sao cần Experiment Tracking?
+### Model Registry là gì?
 
-Khi huấn luyện model, bạn thường thử nhiều tổ hợp tham số khác nhau. Nếu không ghi lại, bạn sẽ:
+Model Registry là trung tâm quản lý tất cả phiên bản model. Nó giúp:
 
-- Không nhớ tham số nào cho kết quả tốt nhất
-- Không tái tạo được kết quả trước đó
-- Không so sánh được các phiên bản model
-- Không biết model nào đang chạy trên production
+- Lưu trữ và đánh số phiên bản cho mỗi model
+- Theo dõi model nào đang chạy trên production
+- Quản lý quy trình duyệt trước khi triển khai
+- Hỗ trợ rollback nhanh khi model mới gặp vấn đề
 
-Experiment tracking giải quyết bằng cách ghi lại:
-
-- **Parameters** — Tham số huấn luyện (n_estimators, learning_rate, ...)
-- **Metrics** — Chỉ số đánh giá (RMSE, MAE, R², MAPE)
-- **Artifacts** — File đầu ra (model.pkl, evaluation.json, biểu đồ)
-- **Tags** — Nhãn phân loại (dataset_version, git_commit, author)
-
-### Các thành phần của MLflow
-
-| Thành phần  | Mô tả                                                        |
-| ----------- | ------------------------------------------------------------- |
-| Experiment  | Nhóm các lần chạy thí nghiệm theo cùng một bài toán         |
-| Run         | Một lần chạy huấn luyện cụ thể với bộ tham số riêng          |
-| Parameters  | Tham số đầu vào được ghi lại cho mỗi run                     |
-| Metrics     | Chỉ số đánh giá được tính toán và ghi lại                    |
-| Artifacts   | File đầu ra: model đã huấn luyện, báo cáo, biểu đồ          |
-| Tags        | Metadata bổ sung: phiên bản dữ liệu, commit hash, tác giả   |
-
-### Metrics cho Tabular Regression
-
-| Metric | Công thức                              | Ý nghĩa                                                    | Giá trị tốt     |
-| ------ | -------------------------------------- | ----------------------------------------------------------- | ---------------- |
-| RMSE   | √(Σ(yᵢ - ŷᵢ)² / n)                   | Sai số trung bình bình phương gốc, cùng đơn vị với y       | Càng thấp càng tốt |
-| MAE    | Σ\|yᵢ - ŷᵢ\| / n                      | Sai số tuyệt đối trung bình, ít nhạy với outlier hơn RMSE  | Càng thấp càng tốt |
-| R²     | 1 - Σ(yᵢ - ŷᵢ)² / Σ(yᵢ - ȳ)²        | Tỷ lệ phương sai được giải thích bởi model                 | Càng gần 1 càng tốt |
-| MAPE   | (Σ\|yᵢ - ŷᵢ\| / \|yᵢ\|) × 100 / n    | Phần trăm sai số tuyệt đối trung bình                      | < 10% là rất tốt  |
-
-### Training Pipeline
+### Vòng đời Model (Model Lifecycle)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                      TRAINING PIPELINE                               │
+│                     MODEL LIFECYCLE                                  │
 │                                                                      │
-│  data/processed/          configs/params.yaml                        │
-│  ├── train.csv                    │                                  │
-│  ├── val.csv                      │                                  │
-│  └── test.csv                     │                                  │
-│       │                           │                                  │
-│       ▼                           ▼                                  │
-│  ┌─────────────────────────────────────┐                             │
-│  │         src/training/train.py       │                             │
-│  │                                     │                             │
-│  │  1. Đọc cấu hình (params.yaml)     │                             │
-│  │  2. Tải dữ liệu train/val/test     │                             │
-│  │  3. Huấn luyện model               │                             │
-│  │  4. Đánh giá trên val và test       │                             │
-│  │  5. Log vào MLflow                  │                             │
-│  │  6. Lưu model và báo cáo           │                             │
-│  └─────────────────────────────────────┘                             │
-│       │                    │                    │                     │
-│       ▼                    ▼                    ▼                     │
-│  models/model.pkl   reports/evaluation.json   MLflow Tracking        │
-│                                               (params, metrics,      │
-│                                                artifacts)            │
+│  Train                                                               │
+│    │                                                                 │
+│    ▼                                                                 │
+│  Register (đăng ký vào Model Registry)                               │
+│    │                                                                 │
+│    ▼                                                                 │
+│  Automated Validation                                                │
+│    │                                                                 │
+│    ├── FAIL ──► Từ chối, không triển khai                            │
+│    │                                                                 │
+│    └── PASS                                                          │
+│         │                                                            │
+│         ▼                                                            │
+│       Staging (kiểm thử trên môi trường giả lập)                    │
+│         │                                                            │
+│         ▼                                                            │
+│       Human Approve (người duyệt xác nhận)                          │
+│         │                                                            │
+│         ▼                                                            │
+│       Production (phục vụ dự đoán thực tế)                           │
+│         │                                                            │
+│         ▼                                                            │
+│       Monitoring (giám sát liên tục)                                 │
+│         │                                                            │
+│         ├── Bình thường ──► Tiếp tục phục vụ                         │
+│         │                                                            │
+│         └── Phát hiện vấn đề ──► Rollback (quay về phiên bản cũ)    │
+│                                                                      │
 └─────────────────────────────────────────────────────────────────────┘
 ```
+
+### Model Governance
+
+Model Governance đảm bảo mỗi model đưa lên production đều có thể truy vết và kiểm soát:
+
+| Khía cạnh         | Mô tả                                                                | Ví dụ                                      |
+| ------------------ | --------------------------------------------------------------------- | ------------------------------------------- |
+| Traceability       | Truy vết nguồn gốc model: run nào, dữ liệu nào, code version nào    | `run_id`, `dataset_version`, `git_commit`   |
+| Audit Trail        | Nhật ký mọi thay đổi trạng thái của model                            | Ai duyệt, khi nào promote, lý do rollback  |
+| Approval Workflow  | Quy trình phê duyệt trước khi model lên production                   | Validation tự động + duyệt thủ công         |
+
+### Model Card
+
+Model Card là tài liệu mô tả model, bao gồm:
+
+- Mục đích sử dụng và giới hạn của model
+- Dữ liệu huấn luyện (nguồn, kích thước, thời gian)
+- Hiệu năng trên các tập dữ liệu khác nhau
+- Các rủi ro đã biết và hướng giảm thiểu
+- Hướng dẫn sử dụng và liên hệ người phụ trách
 
 ---
 
@@ -84,207 +84,249 @@ Experiment tracking giải quyết bằng cách ghi lại:
 
 ```
 mlops-starter-repo/
-├── src/
-│   └── training/
-│       └── train.py             # Huấn luyện model và log MLflow
-├── tests/
-│   └── test_training.py         # Unit test cho training pipeline
+├── scripts/
+│   ├── validate_model.py        # Kiểm tra metrics so với ngưỡng
+│   └── promote_model.py         # Promote hoặc rollback model version
 ├── configs/
-│   └── params.yaml              # Cập nhật thêm phần training
-├── models/
-│   └── model.pkl                # Model đã huấn luyện (đầu ra)
-└── reports/
-    └── evaluation.json          # Báo cáo đánh giá (đầu ra)
+│   └── thresholds.yaml          # Ngưỡng chấp nhận cho metrics
+└── docs/
+    └── model-card.md            # Tài liệu mô tả model
 ```
 
 ---
 
 ## Hướng dẫn thực hành
 
-### Bước 1: Checkout và chạy data pipeline trước
+### Bước 1: Checkout, chạy data pipeline và training
 
 ```powershell
-git checkout -b session03-training
+git checkout -b session04-registry
 
 python src/ingestion/ingest.py
 python src/validation/validate.py
 python src/preprocessing/preprocess.py
 python src/split/split.py
+python src/training/train.py
 ```
 
-Đảm bảo thư mục `data/processed/` đã có `train.csv`, `val.csv`, `test.csv`.
+Hoặc sử dụng lại kết quả từ buổi 03 nếu đã có `reports/evaluation.json` và `models/model.pkl`.
 
-### Bước 2: Xem cấu hình training
+### Bước 2: Xem ngưỡng chấp nhận
+
+Nội dung file `configs/thresholds.yaml`:
 
 ```yaml
-training:
-  model: GradientBoostingRegressor
-  params:
-    n_estimators: 200
-    max_depth: 5
-    learning_rate: 0.1
-    random_state: 42
-  experiment_name: house-price-prediction
+model_quality:
+  rmse_max: 30000
+  mae_max: 20000
+  r2_min: 0.60
+  mape_max: 25.0
+
+serving:
+  latency_p95_ms: 200
+  error_rate_max: 0.01
 ```
 
-### Bước 3: Huấn luyện model
+| Metric      | Ngưỡng              | Ý nghĩa                                        |
+| ----------- | -------------------- | ----------------------------------------------- |
+| rmse_max    | 30.000               | RMSE phải nhỏ hơn 30.000                       |
+| mae_max     | 20.000               | MAE phải nhỏ hơn 20.000                        |
+| r2_min      | 0.60                 | R² phải lớn hơn hoặc bằng 0.60                 |
+| mape_max    | 25.0                 | MAPE phải nhỏ hơn 25%                          |
+| latency_p95 | 200ms                | Thời gian phản hồi p95 của API phải dưới 200ms |
+| error_rate  | 1%                   | Tỷ lệ lỗi API phải dưới 1%                     |
+
+### Bước 3: Chạy validate_model.py
 
 ```powershell
-python src/training/train.py
+python scripts/validate_model.py
 ```
 
 Kết quả mong đợi:
 
 ```
-Đang tải dữ liệu...
-Đang huấn luyện GradientBoostingRegressor...
-Đánh giá trên tập validation:
-  RMSE: 25431.12
-  MAE:  18234.56
-  R²:   0.72
-  MAPE: 15.3%
-Đánh giá trên tập test:
-  RMSE: 26102.45
-  MAE:  19012.33
-  R²:   0.70
-  MAPE: 16.1%
-Model đã lưu tại: models/model.pkl
-Báo cáo đã lưu tại: reports/evaluation.json
-MLflow run ID: abc123def456
+╔══════════════════════════════════════════════════════╗
+║             KẾT QUẢ VALIDATION MODEL                ║
+╠══════════════════════════════════════════════════════╣
+║  RMSE:  25431.12 < 30000.00  ──► PASS ✓            ║
+║  MAE:   18234.56 < 20000.00  ──► PASS ✓            ║
+║  R²:    0.72     > 0.60      ──► PASS ✓            ║
+║  MAPE:  15.3%    < 25.0%     ──► PASS ✓            ║
+╠══════════════════════════════════════════════════════╣
+║  KẾT QUẢ TỔNG: PASS — Model đủ điều kiện triển khai║
+╚══════════════════════════════════════════════════════╝
 ```
 
-### Bước 4: Xem MLflow UI
+### Bước 4: Đăng ký model vào MLflow Model Registry
+
+**Cách 1 — Dùng MLflow CLI:**
 
 ```powershell
-mlflow ui --port 5000
+mlflow models register -m "runs:/<run_id>/model" -n "house-price-model"
 ```
 
-Mở trình duyệt tại `http://localhost:5000`. Bạn sẽ thấy:
+**Cách 2 — Dùng Python:**
 
-- Danh sách experiments bên trái
-- Bảng các runs với cột params và metrics
-- Nhấp vào một run để xem chi tiết: parameters, metrics, artifacts
+```python
+import mlflow
 
-### Bước 5: Xem evaluation report
+mlflow.set_tracking_uri("http://localhost:5000")
+
+result = mlflow.register_model(
+    model_uri="runs:/<run_id>/model",
+    name="house-price-model"
+)
+print(f"Đã đăng ký phiên bản: {result.version}")
+```
+
+### Bước 5: Promote model
 
 ```powershell
-python -c "import json; print(json.dumps(json.load(open('reports/evaluation.json')), indent=2))"
+python scripts/promote_model.py champion
 ```
 
-Cấu trúc file `evaluation.json`:
+Kết quả mong đợi:
 
-```json
-{
-  "model": "GradientBoostingRegressor",
-  "timestamp": "2026-09-03T22:00:00",
-  "validation": {
-    "rmse": 25431.12,
-    "mae": 18234.56,
-    "r2": 0.72,
-    "mape": 15.3
-  },
-  "test": {
-    "rmse": 26102.45,
-    "mae": 19012.33,
-    "r2": 0.70,
-    "mape": 16.1
-  },
-  "params": {
-    "n_estimators": 200,
-    "max_depth": 5,
-    "learning_rate": 0.1,
-    "random_state": 42
-  },
-  "mlflow_run_id": "abc123def456"
-}
+```
+Model 'house-price-model' phiên bản 1 đã được gán alias 'champion'.
+Phiên bản này sẽ được sử dụng khi serving.
 ```
 
-### Bước 6: Thử thay đổi hyperparams và so sánh
+Các alias phổ biến:
 
-Mở `configs/params.yaml`, thay đổi tham số:
+| Alias      | Ý nghĩa                                          |
+| ---------- | ------------------------------------------------- |
+| candidate  | Model mới được đăng ký, chờ validation            |
+| staging    | Model đã qua validation, đang kiểm thử            |
+| champion   | Model đang phục vụ trên production                 |
 
-```yaml
-training:
-  params:
-    n_estimators: 300
-    max_depth: 7
-    learning_rate: 0.05
-```
-
-Chạy lại training:
+### Bước 6: Đọc và chỉnh sửa Model Card
 
 ```powershell
-python src/training/train.py
+type docs\model-card.md
 ```
 
-Mở MLflow UI, chọn 2 runs và nhấn **Compare** để so sánh metrics giữa các lần chạy.
+Mẫu Model Card:
 
-### Bước 7: Chạy tests
+```markdown
+# Model Card — House Price Prediction
+
+## Tổng quan
+- **Tên model:** house-price-model
+- **Phiên bản:** 1
+- **Thuật toán:** GradientBoostingRegressor
+- **Ngày huấn luyện:** 2026-09-03
+- **Người phụ trách:** MLOps Team
+
+## Mục đích sử dụng
+Dự đoán giá nhà dựa trên các đặc trưng: diện tích, số phòng, tuổi nhà, vị trí.
+
+## Dữ liệu huấn luyện
+- **Nguồn:** data/raw/houses.csv
+- **Số lượng:** 1000 bản ghi
+- **Thời gian thu thập:** 2026
+- **Chia tập:** train 70%, validation 10%, test 20%
+
+## Hiệu năng
+| Tập dữ liệu | RMSE     | MAE      | R²   | MAPE  |
+| ------------ | -------- | -------- | ---- | ----- |
+| Validation   | 25431.12 | 18234.56 | 0.72 | 15.3% |
+| Test         | 26102.45 | 19012.33 | 0.70 | 16.1% |
+
+## Giới hạn và rủi ro
+- Chỉ áp dụng cho thị trường bất động sản trong phạm vi dữ liệu huấn luyện
+- Không xử lý tốt khi giá nhà biến động đột biến (data drift)
+- Dữ liệu huấn luyện có thể không đại diện cho mọi khu vực
+
+## Hướng dẫn sử dụng
+Gọi API prediction endpoint với JSON chứa các trường: area, bedrooms,
+bathrooms, age, garage, location.
+```
+
+Chỉnh sửa Model Card phù hợp với kết quả thực tế của bạn.
+
+### Bước 7: Thử rollback scenario
+
+Giả sử model mới (phiên bản 2) có kết quả kém hơn, bạn muốn quay về phiên bản 1:
 
 ```powershell
-pytest tests/test_training.py -v
+python scripts/promote_model.py champion --version 1
+```
+
+Kết quả:
+
+```
+Rollback thành công. Model 'house-price-model' phiên bản 1 đã được gán lại alias 'champion'.
 ```
 
 ---
 
-## Chi tiết code — `src/training/train.py`
+## Chi tiết code
 
-### Hàm `load_config()`
+### `scripts/validate_model.py`
 
-- Đọc file `configs/params.yaml` bằng thư viện `yaml`
-- Trả về dictionary chứa toàn bộ cấu hình
+Chức năng:
 
-### Hàm `load_data(config)`
+1. Đọc file `reports/evaluation.json` để lấy metrics thực tế
+2. Đọc file `configs/thresholds.yaml` để lấy ngưỡng chấp nhận
+3. So sánh từng metric với ngưỡng tương ứng:
+   - `rmse` ≤ `rmse_max` → PASS
+   - `mae` ≤ `mae_max` → PASS
+   - `r2` ≥ `r2_min` → PASS
+   - `mape` ≤ `mape_max` → PASS
+4. In kết quả PASS/FAIL cho từng metric
+5. Kết luận tổng: PASS nếu tất cả metrics đạt, FAIL nếu bất kỳ metric nào không đạt
+6. Trả về exit code 0 (thành công) hoặc 1 (thất bại) — hữu ích cho CI/CD
 
-- Đọc `train.csv`, `val.csv`, `test.csv` từ `data/processed/`
-- Tách features (X) và target (y) dựa trên cấu hình
-- Trả về 6 biến: `X_train, y_train, X_val, y_val, X_test, y_test`
+### `scripts/promote_model.py`
 
-### Hàm `evaluate(model, X, y)`
+Chức năng:
 
-- Tính 4 metrics: RMSE, MAE, R², MAPE
-- Sử dụng `sklearn.metrics`: `mean_squared_error`, `mean_absolute_error`, `r2_score`
-- MAPE tính thủ công: `np.mean(np.abs((y - y_pred) / y)) * 100`
-- Trả về dictionary `{"rmse": ..., "mae": ..., "r2": ..., "mape": ...}`
+1. Nhận đối số dòng lệnh: alias (candidate/staging/champion) và tùy chọn version
+2. Kết nối đến MLflow Tracking Server
+3. Lấy phiên bản model mới nhất (hoặc phiên bản chỉ định)
+4. Gán alias cho phiên bản đó bằng `client.set_registered_model_alias()`
+5. In xác nhận thành công
 
-### Hàm `train()`
+Sử dụng:
 
-Luồng chính:
+```powershell
+python scripts/promote_model.py candidate
+python scripts/promote_model.py staging
+python scripts/promote_model.py champion
+python scripts/promote_model.py champion --version 1
+```
 
-1. Gọi `load_config()` để đọc tham số
-2. Gọi `load_data()` để tải dữ liệu
-3. Khởi tạo `GradientBoostingRegressor` với tham số từ config
-4. Gọi `model.fit(X_train, y_train)` để huấn luyện
-5. Đánh giá trên tập validation và test bằng `evaluate()`
-6. Bắt đầu MLflow run:
-   - `mlflow.log_params()` — ghi tham số
-   - `mlflow.log_metrics()` — ghi metrics
-   - `mlflow.sklearn.log_model()` — lưu model artifact
-7. Lưu model vào `models/model.pkl` bằng `joblib.dump()`
-8. Lưu báo cáo vào `reports/evaluation.json`
+### `configs/thresholds.yaml`
 
-### Định dạng `evaluation.json`
+```yaml
+model_quality:
+  rmse_max: 30000
+  mae_max: 20000
+  r2_min: 0.60
+  mape_max: 25.0
 
-File JSON chứa:
+serving:
+  latency_p95_ms: 200
+  error_rate_max: 0.01
+```
 
-- `model` — Tên thuật toán
-- `timestamp` — Thời gian huấn luyện
-- `validation` — Metrics trên tập validation
-- `test` — Metrics trên tập test
-- `params` — Tham số huấn luyện
-- `mlflow_run_id` — ID của MLflow run để truy vết
+Hai nhóm ngưỡng:
+
+- **model_quality** — Dùng trong `validate_model.py` để kiểm tra chất lượng model trước khi triển khai
+- **serving** — Dùng trong monitoring để kiểm tra hiệu năng API sau khi triển khai
 
 ---
 
 ## Bài tập sau buổi học
 
-1. **Thử thuật toán khác** — Thay GradientBoostingRegressor bằng RandomForestRegressor hoặc XGBRegressor, so sánh kết quả trên MLflow.
-2. **Grid search** — Viết script tự động thử nhiều tổ hợp hyperparams (n_estimators ∈ [100, 200, 300], max_depth ∈ [3, 5, 7]) và log tất cả vào MLflow.
-3. **Feature importance** — Thêm code xuất biểu đồ feature importance và log vào MLflow artifacts.
-4. **Viết thêm test** — Bổ sung test: kiểm tra model có thể predict được, kiểm tra output shape đúng, kiểm tra metrics nằm trong phạm vi hợp lý.
+1. **Tự động hóa quy trình** — Viết script kết hợp: train → validate → register → promote tự động nếu tất cả metrics đạt ngưỡng.
+2. **Thêm ngưỡng nghiêm ngặt hơn** — Điều chỉnh `thresholds.yaml` (ví dụ: r2_min = 0.75) và quan sát model nào PASS/FAIL.
+3. **Viết Model Card chi tiết** — Bổ sung phần: phân tích công bằng (fairness) theo location, so sánh hiệu năng giữa các nhóm dữ liệu.
+4. **Rollback có kiểm tra** — Viết script rollback có ghi nhật ký: ai rollback, khi nào, lý do, phiên bản trước và sau.
 
 ---
 
 ## Buổi tiếp theo
 
-**Buổi 04 — Model Registry và Governance**: Đăng ký model vào MLflow Model Registry, thiết lập quy trình duyệt model (Candidate → Staging → Production), viết validation pipeline tự động và Model Card.
+**Buổi 05 — Đóng gói Model và Triển khai API**: Đóng gói model bằng Docker, xây dựng REST API với FastAPI, viết health check và test endpoint dự đoán.

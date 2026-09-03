@@ -1,0 +1,13 @@
+model_validation:
+  min_r2: 0.60
+  max_rmse: 50000
+  max_mae: 35000
+  min_samples: 100
+
+performance:
+  max_latency_ms: 200
+  max_memory_mb: 512
+
+data_quality:
+  max_null_ratio: 0.05
+  max_duplicate_ratio: 0.01
