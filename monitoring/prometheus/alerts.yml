@@ -1,0 +1,28 @@
+groups:
+  - name: model-api-alerts
+    rules:
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is above 10% for 2 minutes"
+
+      - alert: HighLatency
+        expr: http_request_duration_seconds_sum / http_request_duration_seconds_count > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High latency detected"
+          description: "Average latency is above 500ms for 5 minutes"
+
+      - alert: ServiceDown
+        expr: up{job="model-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Model API is down"
