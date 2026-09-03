@@ -1,56 +1,85 @@
-# Buổi 06 — CI/CD và Quality Gate
+# Buổi 07 — Monitoring, Metrics và Drift Detection
 
 ## Mục tiêu buổi học
 
-- Hiểu CI/CD/CT trong MLOps
-- Xây dựng GitLab CI pipeline: lint, test, validate config, build Docker image
-- Thiết lập quality gates tự động
-- Viết script validate config
+- Instrument FastAPI với Prometheus metrics
+- Thu thập logs có cấu trúc (JSON logging)
+- Cấu hình Prometheus scrape metrics
+- Cấu hình Loki + Promtail thu thập logs
+- Viết script phát hiện data drift
+- Thiết lập alert rules
 
 ---
 
 ## Kiến thức lý thuyết
 
-### CI / CD / CT trong MLOps
+### 3 tầng Monitoring
 
-| Khái niệm | Giải thích | Ví dụ |
-|------------|------------|-------|
-| **CI** (Continuous Integration) | Mỗi commit tự động trigger lint + test | Push code → GitLab chạy `ruff check` + `pytest` |
-| **CD** (Continuous Delivery) | Tự động build Docker image, deploy lên staging | Merge vào `main` → build image → deploy staging |
-| **CT** (Continuous Training) | Tự động retrain khi dữ liệu thay đổi hoặc phát hiện drift | Data mới → trigger pipeline train → đánh giá → register model |
+| Tầng | Mô tả | Ví dụ metrics |
+|------|--------|---------------|
+| **Service metrics** | Giám sát hiệu năng hệ thống | Latency (p50, p95, p99), error rate, throughput (req/s) |
+| **ML metrics** | Giám sát chất lượng mô hình | Accuracy, R², drift score, prediction distribution |
+| **Business metrics** | Giám sát tác động kinh doanh | Conversion rate, revenue, số lượng dự đoán sai ảnh hưởng nghiệp vụ |
 
-### Quality Gate
+### Prometheus
 
-Quality Gate là tập hợp các điều kiện **bắt buộc phải đạt** trước khi code được merge hoặc deploy:
+- **Pull-based**: Prometheus chủ động kéo (scrape) metrics từ các endpoint `/metrics`
+- **Time-series DB**: Lưu trữ dữ liệu dạng chuỗi thời gian
+- **PromQL**: Ngôn ngữ truy vấn mạnh mẽ (ví dụ: `rate(request_count[5m])`)
+- **Alerting**: Định nghĩa rules, khi điều kiện thỏa mãn → gửi cảnh báo qua Alertmanager
 
-| Gate | Mô tả | Công cụ |
-|------|--------|---------|
-| Lint pass | Code tuân thủ coding style | `ruff` |
-| Tests pass | Tất cả unit/integration tests đều pass | `pytest` |
-| Config valid | File cấu hình đúng format, giá trị hợp lệ | `validate_config.py` |
-| Docker build OK | Image build thành công, app import được | `docker build` + smoke test |
+### Loki
 
-### GitLab CI — Các khái niệm chính
+- **Log aggregation**: Thu thập và lưu trữ logs tập trung
+- **LogQL**: Ngôn ngữ truy vấn logs (tương tự PromQL)
+- Kết hợp với **Grafana** để hiển thị logs trực quan
+- Không index nội dung log (chỉ index labels) → tiết kiệm tài nguyên
 
-| Khái niệm | Giải thích |
-|------------|------------|
-| `.gitlab-ci.yml` | File cấu hình pipeline, đặt ở thư mục gốc |
-| **Stages** | Các giai đoạn chạy tuần tự: lint → test → validate → build |
-| **Jobs** | Các tác vụ trong mỗi stage, chạy song song nếu cùng stage |
-| **image** | Docker image dùng để chạy job (ví dụ: `python:3.11-slim`) |
-| **script** | Danh sách lệnh thực thi trong job |
-| **artifacts** | File kết quả lưu lại sau khi job chạy xong |
-| **rules** | Điều kiện để job được kích hoạt (ví dụ: chỉ chạy khi có MR) |
+### Promtail
+
+- Agent chạy trên mỗi máy, đọc file log và đẩy vào Loki
+- Cấu hình đường dẫn log, labels, và parsing rules
+- Hỗ trợ pipeline stages: regex, json, labels, timestamp
+
+### Grafana
+
+- Nền tảng visualization dashboards
+- Hỗ trợ nhiều data sources: Prometheus, Loki, PostgreSQL, ...
+- Tạo dashboard với nhiều panel: graph, stat, table, logs
+
+### Các loại Drift
+
+| Loại Drift | Mô tả | Phương pháp phát hiện |
+|------------|--------|----------------------|
+| **Data Drift** | Phân phối input thay đổi theo thời gian | So sánh thống kê: z-score, KS test, PSI |
+| **Model Drift** | Performance mô hình giảm dần | Theo dõi metrics: R², MAE, RMSE theo thời gian |
+| **Concept Drift** | Mối quan hệ giữa input và output thay đổi | So sánh prediction distribution, cần ground truth |
+
+### Delayed Evaluation
+
+Trong nhiều bài toán, **ground truth đến muộn** so với thời điểm dự đoán:
+
+- **Ví dụ**: Dự đoán giá nhà hôm nay, nhưng giá bán thực tế chỉ biết sau 3 tháng
+- **Hệ quả**: Không thể tính accuracy ngay → phải dùng proxy metrics hoặc data drift để giám sát tạm thời
+- **Chiến lược**: Khi có ground truth → tính metrics thực tế → quyết định retrain
 
 ---
 
 ## Cấu trúc file mới thêm
 
 ```
-session-06-ci-cd/
-├── .gitlab-ci.yml            # Pipeline CI/CD với 4 stages
-└── scripts/
-    └── validate_config.py    # Script kiểm tra file cấu hình
+session-07-monitoring/
+├── app/
+│   └── metrics.py                        # PrometheusMiddleware, Counter, Histogram
+├── infra/
+│   ├── prometheus.yml                    # Cấu hình Prometheus scrape
+│   └── promtail.yml                      # Cấu hình Promtail đọc logs
+├── monitoring/
+│   ├── prometheus/
+│   │   └── alerts.yml                    # Alert rules
+│   └── generate_drift_report.py          # Script phát hiện data drift
+└── docs/
+    └── retraining-trigger.md             # Tài liệu chiến lược retrain
 ```
 
 ---
@@ -60,239 +89,311 @@ session-06-ci-cd/
 ### Bước 1: Checkout branch
 
 ```bash
-git checkout session-06-ci-cd
+git checkout session-07-monitoring
 ```
 
-### Bước 2: Đọc `.gitlab-ci.yml`
+### Bước 2: Xem `app/metrics.py`
 
-Mở file và hiểu cấu trúc 4 stages:
+Hiểu cách tích hợp Prometheus với FastAPI:
+- `PrometheusMiddleware`: middleware tự động đo latency và đếm request
+- `Counter`: đếm số lần xảy ra sự kiện (ví dụ: tổng request, tổng prediction)
+- `Histogram`: đo phân phối giá trị (ví dụ: latency theo percentile)
 
-```
-stages:
-  - lint        # Kiểm tra coding style
-  - test        # Chạy unit tests
-  - validate    # Kiểm tra cấu hình
-  - build       # Build Docker image
-```
-
-### Bước 3: Chạy lint local
+### Bước 3: Chạy API local và kiểm tra metrics
 
 ```bash
-pip install ruff
-ruff check app/ src/ tests/ scripts/
+uvicorn app.main:app --reload --port 8000
 ```
 
-Nếu có lỗi, sửa theo gợi ý hoặc chạy tự động:
+Gửi vài request rồi truy cập endpoint metrics:
 ```bash
-ruff check --fix app/ src/ tests/ scripts/
+curl http://localhost:8000/metrics
 ```
 
-### Bước 4: Chạy tests local
-
-```bash
-pytest tests/ -v --ignore=tests/test_api.py
+Kết quả sẽ hiển thị dạng Prometheus exposition format:
+```
+# HELP request_count_total Tổng số request
+# TYPE request_count_total counter
+request_count_total{method="GET",endpoint="/health",status="200"} 3.0
+...
 ```
 
-> **Lưu ý:** Bỏ qua `test_api.py` vì cần API server đang chạy.
+### Bước 4: Xem cấu hình Prometheus
 
-### Bước 5: Chạy validate config
+Mở file `infra/prometheus.yml`:
+```yaml
+global:
+  scrape_interval: 15s
 
-```bash
-python scripts/validate_config.py
+scrape_configs:
+  - job_name: "model-api"
+    static_configs:
+      - targets: ["model-api:8000"]
+
+rule_files:
+  - "/etc/prometheus/alerts.yml"
 ```
 
-Kết quả mong đợi nếu tất cả hợp lệ:
-```
-[OK] configs/params.yaml — tất cả sections hợp lệ
-[OK] configs/thresholds.yaml — tất cả sections hợp lệ
-[OK] Đường dẫn dữ liệu raw tồn tại
-[OK] Tất cả tham số training hợp lệ
-✅ Tất cả kiểm tra đều PASS
-```
+### Bước 5: Xem alert rules
 
-### Bước 6: Build Docker image local
+Mở file `monitoring/prometheus/alerts.yml` — có 2 rules:
 
-```bash
-docker build -t model-api:ci .
-```
+| Alert | Điều kiện | Thời gian chờ |
+|-------|-----------|--------------|
+| **HighErrorRate** | Tỷ lệ lỗi > 1% | Liên tục trong 2 phút |
+| **HighLatency** | p95 latency > 200ms | Liên tục trong 2 phút |
 
-Smoke test — kiểm tra app import được:
-```bash
-docker run --rm model-api:ci python -c "import app.main"
-```
-
-### Bước 7: Push lên GitLab (nếu có)
+### Bước 6: Chạy drift report
 
 ```bash
-git add .
-git commit -m "feat: thêm CI/CD pipeline"
-git push origin session-06-ci-cd
+python monitoring/generate_drift_report.py
 ```
 
-Sau khi push, mở GitLab → **CI/CD → Pipelines** để xem pipeline chạy.
+Xem kết quả:
+```bash
+type monitoring\reports\drift_report.json
+```
+
+Kết quả mẫu:
+```json
+{
+  "generated_at": "2025-01-15T10:30:00",
+  "features_analyzed": 5,
+  "drifted_features": ["area", "location_encoded"],
+  "details": {
+    "area": {"z_score": 3.2, "drifted": true},
+    "bedrooms": {"z_score": 0.5, "drifted": false}
+  }
+}
+```
+
+### Bước 7: Đọc tài liệu chiến lược retrain
+
+Mở `docs/retraining-trigger.md` — mô tả:
+- Khi nào cần retrain (drift phát hiện, performance giảm, dữ liệu mới đủ lớn)
+- Quy trình retrain tự động (CT pipeline)
+- Rollback strategy nếu model mới kém hơn
 
 ---
 
 ## Chi tiết code
 
-### `.gitlab-ci.yml`
-
-```yaml
-stages:
-  - lint
-  - test
-  - validate
-  - build
-
-variables:
-  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
-
-cache:
-  paths:
-    - .cache/pip/
-
-lint:
-  stage: lint
-  image: python:3.11-slim
-  script:
-    - pip install ruff
-    - ruff check app/ src/ tests/ scripts/
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    - if: '$CI_COMMIT_BRANCH == "main"'
-
-test:
-  stage: test
-  image: python:3.11-slim
-  script:
-    - pip install -r requirements.txt
-    - pip install pytest
-    - pytest tests/ -v --ignore=tests/test_api.py
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    - if: '$CI_COMMIT_BRANCH == "main"'
-
-validate-config:
-  stage: validate
-  image: python:3.11-slim
-  script:
-    - pip install pyyaml
-    - python scripts/validate_config.py
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    - if: '$CI_COMMIT_BRANCH == "main"'
-
-docker-build:
-  stage: build
-  image: docker:24.0
-  services:
-    - docker:24.0-dind
-  script:
-    - docker build -t model-api:ci .
-    - docker run --rm model-api:ci python -c "import app.main"
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    - if: '$CI_COMMIT_BRANCH == "main"'
-```
-
-**Giải thích:**
-- **lint**: Dùng `ruff` kiểm tra coding style cho tất cả thư mục code
-- **test**: Cài dependencies, chạy `pytest` (bỏ qua integration test)
-- **validate-config**: Chạy script kiểm tra file cấu hình
-- **docker-build**: Build image và chạy smoke test kiểm tra import thành công
-- **rules**: Pipeline chỉ chạy khi có Merge Request hoặc push vào `main`
-
-### `scripts/validate_config.py`
+### `app/metrics.py`
 
 ```python
-import yaml
-import sys
-from pathlib import Path
+from prometheus_client import Counter, Histogram, generate_latest
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
+import time
 
-def load_yaml(path: str) -> dict:
-    with open(path) as f:
-        return yaml.safe_load(f)
+REQUEST_COUNT = Counter(
+    "request_count",
+    "Tổng số HTTP request",
+    ["method", "endpoint", "status"],
+)
 
-def validate_params(config: dict):
-    required_sections = ["project", "data", "training"]
-    for section in required_sections:
-        assert section in config, f"Thiếu section '{section}' trong params.yaml"
+REQUEST_LATENCY = Histogram(
+    "request_latency_seconds",
+    "Latency của HTTP request (giây)",
+    ["method", "endpoint"],
+    buckets=[0.01, 0.025, 0.05, 0.1, 0.2, 0.5, 1.0],
+)
 
-    training = config["training"]
-    assert training.get("n_estimators", 0) >= 1, \
-        f"n_estimators phải >= 1, nhận được {training.get('n_estimators')}"
-    lr = training.get("learning_rate", 0)
-    assert 0 < lr <= 1, \
-        f"learning_rate phải trong khoảng (0, 1], nhận được {lr}"
+PREDICTION_COUNT = Counter(
+    "prediction_count",
+    "Tổng số lần gọi prediction",
+)
 
-def validate_thresholds(config: dict):
-    required_sections = ["tabular", "serving"]
-    for section in required_sections:
-        assert section in config, f"Thiếu section '{section}' trong thresholds.yaml"
+PREDICTION_LATENCY = Histogram(
+    "prediction_latency_seconds",
+    "Latency của prediction (giây)",
+    buckets=[0.005, 0.01, 0.025, 0.05, 0.1, 0.25],
+)
 
-def validate_data_path(config: dict):
-    raw_path = config.get("data", {}).get("raw_path", "")
-    assert Path(raw_path).exists(), \
-        f"Đường dẫn dữ liệu raw không tồn tại: {raw_path}"
+class PrometheusMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        start = time.perf_counter()
+        response = await call_next(request)
+        latency = time.perf_counter() - start
 
-def main():
-    errors = []
+        REQUEST_COUNT.labels(
+            method=request.method,
+            endpoint=request.url.path,
+            status=response.status_code,
+        ).inc()
 
-    try:
-        params = load_yaml("configs/params.yaml")
-        validate_params(params)
-        print("[OK] configs/params.yaml — tất cả sections hợp lệ")
-    except Exception as e:
-        errors.append(f"[FAIL] params.yaml: {e}")
+        REQUEST_LATENCY.labels(
+            method=request.method,
+            endpoint=request.url.path,
+        ).observe(latency)
 
-    try:
-        thresholds = load_yaml("configs/thresholds.yaml")
-        validate_thresholds(thresholds)
-        print("[OK] configs/thresholds.yaml — tất cả sections hợp lệ")
-    except Exception as e:
-        errors.append(f"[FAIL] thresholds.yaml: {e}")
+        return response
 
-    try:
-        validate_data_path(params)
-        print("[OK] Đường dẫn dữ liệu raw tồn tại")
-    except Exception as e:
-        errors.append(f"[FAIL] data path: {e}")
-
-    print("[OK] Tất cả tham số training hợp lệ")
-
-    if errors:
-        print("\n❌ Có lỗi:")
-        for err in errors:
-            print(f"  {err}")
-        sys.exit(1)
-    else:
-        print("\n✅ Tất cả kiểm tra đều PASS")
-
-if __name__ == "__main__":
-    main()
+async def metrics_endpoint(request: Request) -> Response:
+    return Response(
+        content=generate_latest(),
+        media_type="text/plain",
+    )
 ```
 
-**Kiểm tra bao gồm:**
-- `configs/params.yaml` có đủ sections: `project`, `data`, `training`
-- `configs/thresholds.yaml` có đủ sections: `tabular`, `serving`
-- Đường dẫn raw data tồn tại trên hệ thống
-- `n_estimators >= 1`
-- `0 < learning_rate <= 1`
+### `app/main.py` — cập nhật
+
+Thêm middleware và JSON logging:
+
+```python
+import logging
+import json
+
+logging.basicConfig(
+    filename="logs/app.log",
+    level=logging.INFO,
+    format="%(message)s",
+)
+
+app.add_middleware(PrometheusMiddleware)
+app.add_route("/metrics", metrics_endpoint)
+
+@app.post("/predict", response_model=PredictResponse)
+def predict(request: PredictRequest):
+    prediction, latency_ms = model_holder.predict(request.features)
+
+    logging.info(json.dumps({
+        "event": "prediction",
+        "features": request.features,
+        "prediction": prediction,
+        "latency_ms": latency_ms,
+        "model_version": model_holder.model_version,
+    }))
+
+    PREDICTION_COUNT.inc()
+    PREDICTION_LATENCY.observe(latency_ms / 1000)
+
+    return PredictResponse(
+        prediction=prediction,
+        latency_ms=latency_ms,
+        model_version=model_holder.model_version or "unknown",
+    )
+```
+
+### `monitoring/generate_drift_report.py`
+
+```python
+import json
+import numpy as np
+from datetime import datetime
+from pathlib import Path
+
+def compute_stats(values: list[float]) -> dict:
+    return {
+        "mean": float(np.mean(values)),
+        "std": float(np.std(values)),
+        "min": float(np.min(values)),
+        "max": float(np.max(values)),
+    }
+
+def detect_drift(
+    baseline_mean: float,
+    baseline_std: float,
+    current_mean: float,
+    threshold: float = 2.0,
+) -> tuple[float, bool]:
+    if baseline_std == 0:
+        return 0.0, False
+    z_score = abs(current_mean - baseline_mean) / baseline_std
+    return z_score, z_score > threshold
+
+def generate_report(
+    baseline_data: dict[str, list[float]],
+    current_data: dict[str, list[float]],
+    output_path: str = "monitoring/reports/drift_report.json",
+):
+    details = {}
+    drifted_features = []
+
+    for feature in baseline_data:
+        baseline_stats = compute_stats(baseline_data[feature])
+        current_stats = compute_stats(current_data[feature])
+
+        z_score, drifted = detect_drift(
+            baseline_stats["mean"],
+            baseline_stats["std"],
+            current_stats["mean"],
+        )
+
+        details[feature] = {
+            "baseline": baseline_stats,
+            "current": current_stats,
+            "z_score": round(z_score, 4),
+            "drifted": drifted,
+        }
+
+        if drifted:
+            drifted_features.append(feature)
+
+    report = {
+        "generated_at": datetime.now().isoformat(),
+        "features_analyzed": len(baseline_data),
+        "drifted_features": drifted_features,
+        "details": details,
+    }
+
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w") as f:
+        json.dump(report, f, indent=2)
+
+    print(f"📊 Báo cáo drift đã được tạo: {output_path}")
+    print(f"   Tổng features phân tích: {len(baseline_data)}")
+    print(f"   Features bị drift: {drifted_features or 'Không có'}")
+
+    return report
+```
+
+### `monitoring/prometheus/alerts.yml`
+
+```yaml
+groups:
+  - name: model-api-alerts
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(request_count{status=~"5.."}[2m]))
+            /
+            sum(rate(request_count[2m]))
+          ) > 0.01
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Tỷ lệ lỗi API cao"
+          description: "Tỷ lệ lỗi 5xx vượt quá 1% trong 2 phút qua"
+
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95, rate(request_latency_seconds_bucket[2m])) > 0.2
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Latency API cao"
+          description: "P95 latency vượt quá 200ms trong 2 phút qua"
+```
 
 ---
 
 ## Bài tập sau buổi học
 
-1. **Thêm stage `security-scan`** — thêm một job mới dùng `pip-audit` hoặc `safety` để quét lỗ hổng bảo mật trong dependencies. Đặt ở stage riêng giữa `test` và `validate`.
+1. **Thêm metric cho model confidence** — tạo thêm Histogram `prediction_confidence` để theo dõi phân phối độ tin cậy của mô hình. Cập nhật endpoint `/predict` để trả về và ghi nhận confidence score.
 
-2. **Thêm kiểm tra thresholds chi tiết** — trong `validate_config.py`, kiểm tra thêm: `min_r2_score` phải nằm trong khoảng `[0, 1]`, `max_latency_ms` phải dương.
+2. **Cấu hình Grafana dashboard** — tạo file JSON cho Grafana dashboard hiển thị: request rate, latency p95, error rate, prediction distribution. Import vào Grafana và chụp ảnh kết quả.
 
-3. **Cấu hình artifacts** — chỉnh `.gitlab-ci.yml` để lưu kết quả test dưới dạng JUnit XML (`pytest --junitxml=report.xml`), sau đó dùng `artifacts:reports:junit` để GitLab hiển thị kết quả test trên giao diện MR.
+3. **Mở rộng drift detection** — thêm phương pháp KS test (Kolmogorov-Smirnov) bên cạnh z-score trong `generate_drift_report.py`. So sánh kết quả hai phương pháp.
 
-4. **Viết script `pre-commit` hook** — tạo script chạy `ruff check` và `validate_config.py` tự động mỗi khi developer commit. Đặt trong `.githooks/pre-commit`.
+4. **Viết alert cho model drift** — thêm rule trong `alerts.yml` cảnh báo khi `prediction_latency` tăng đột biến (> 500ms) hoặc khi tỷ lệ prediction có giá trị bất thường (ngoài khoảng mong đợi).
 
 ---
 
 ## Buổi tiếp theo
 
-**Buổi 07 — Monitoring, Metrics và Drift Detection**: Tích hợp Prometheus metrics vào FastAPI, thu thập logs với Loki + Promtail, viết script phát hiện data drift, và thiết lập alert rules.
+**Buổi 08 — Tích hợp End-to-End với Docker Compose**: Tích hợp tất cả thành phần (PostgreSQL, MinIO, MLflow, FastAPI, Prometheus, Loki, Promtail, Grafana) vào một stack duy nhất bằng Docker Compose. Khởi động toàn bộ hệ thống bằng một lệnh và chạy full flow: train → register → predict → monitor.

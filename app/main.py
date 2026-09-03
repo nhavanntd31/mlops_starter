@@ -1,17 +1,40 @@
-from fastapi import FastAPI, HTTPException
+import logging
+import json
+import sys
 from datetime import datetime
+from fastapi import FastAPI, HTTPException
 from app.schemas import PredictRequest, PredictResponse, HealthResponse, ModelInfoResponse
 from app.model_loader import model_holder
 from app.predictors.tabular import predict_price
+from app.metrics import PrometheusMiddleware, metrics_endpoint
+
+class JSONFormatter(logging.Formatter):
+    def format(self, record):
+        log_data = {
+            "timestamp": datetime.now().isoformat(),
+            "level": record.levelname,
+            "message": record.getMessage(),
+            "module": record.module,
+        }
+        return json.dumps(log_data)
+
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(JSONFormatter())
+logger = logging.getLogger("house-price-api")
+logger.addHandler(handler)
+logger.setLevel(logging.INFO)
 
 app = FastAPI(title="House Price Prediction API", version="0.1.0")
+app.add_middleware(PrometheusMiddleware)
+app.add_route("/metrics", metrics_endpoint, methods=["GET"])
 
 @app.on_event("startup")
 def startup_event():
     try:
         model_holder.load()
+        logger.info("Model loaded successfully")
     except Exception as e:
-        print(f"[API] Failed to load model: {e}")
+        logger.error(f"Failed to load model: {e}")
 
 @app.get("/health", response_model=HealthResponse)
 def health():
@@ -45,10 +68,12 @@ def predict(request: PredictRequest):
             garage=request.garage,
             location=request.location,
         )
+        logger.info(f"Prediction: {price:.2f} for {request.dict()}")
         return PredictResponse(
             predicted_price=round(price, 2),
             model_version=model_holder.version,
             timestamp=datetime.now().isoformat(),
         )
     except Exception as e:
+        logger.error(f"Prediction error: {e}")
         raise HTTPException(status_code=400, detail=str(e))

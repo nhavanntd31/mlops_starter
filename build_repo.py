@@ -486,7 +486,21 @@ def model_info():
     return ModelInfoResponse(model_name=model_holder.model_name, model_version=model_holder.model_version, features=model_holder.features)
 ''')
 
-w('Dockerfile', 'FROM python:3.11-slim\n\nWORKDIR /app\n\nCOPY requirements.txt .\nRUN pip install --no-cache-dir -r requirements.txt \\\\\n    && pip install --no-cache-dir fastapi uvicorn python-multipart httpx prometheus-client\n\nCOPY app/ ./app/\n\nEXPOSE 8000\n\nCMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]\n')
+dockerfile_content = "FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY app/ ./app/
+
+EXPOSE 8000
+
+CMD [\"uvicorn\", \"app.main:app\", \"--host\", \"0.0.0.0\", \"--port\", \"8000\"]
+"
+w('Dockerfile', dockerfile_content)
+    && pip install --no-cache-dir fastapi uvicorn python-multipart httpx prometheus-client\n\nCOPY app/ ./app/\n\nEXPOSE 8000\n\nCMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]\n')
 
 w('.dockerignore', '.git\n.venv\nvenv\n__pycache__\n*.pyc\ndata/\nmodels/\nreports/\nlogs/\nmlruns/\nmlartifacts/\n.dvc/cache\n.dvc/tmp\ninfra/\nmonitoring/\ndocs/\ntests/\nscripts/\n*.md\n')
 
