@@ -1,0 +1,12 @@
+__pycache__
+*.pyc
+.git
+.dvc
+data/raw
+notebooks
+docs
+tests
+reports
+logs
+.env
+*.md

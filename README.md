@@ -1,332 +1,301 @@
-# Buổi 04 — Model Registry và Governance
+# Buổi 05 — Docker và FastAPI Model Serving
 
 ## Mục tiêu buổi học
 
-- Đăng ký model vào MLflow Model Registry
-- Hiểu vòng đời model: Candidate → Staging → Production
-- Viết automated validation pipeline (kiểm tra metrics so với ngưỡng)
-- Thực hiện promote và rollback phiên bản model
-- Viết Model Card cho model
+- Xây dựng API serving với FastAPI: `/health`, `/predict`, `/model-info`
+- Hiểu 3 loại inference: batch, online, streaming
+- Đóng gói ứng dụng với Docker
+- Viết integration test cho API
 
 ---
 
 ## Kiến thức lý thuyết
 
-### Model Registry là gì?
+### 3 loại Inference
 
-Model Registry là trung tâm quản lý tất cả phiên bản model. Nó giúp:
+| Loại | Mô tả | Ví dụ | Đặc điểm |
+|------|--------|-------|-----------|
+| **Batch** | Xử lý hàng loạt dữ liệu theo lịch | Cron job chạy dự đoán mỗi đêm | Throughput cao, latency không quan trọng |
+| **Online** | Real-time REST API, trả kết quả ngay | Người dùng gửi request, nhận prediction | Low latency (< 200ms), đồng bộ |
+| **Streaming** | Event-driven, xử lý liên tục | Kafka consumer nhận event và dự đoán | Bất đồng bộ, throughput cao, near real-time |
 
-- Lưu trữ và đánh số phiên bản cho mỗi model
-- Theo dõi model nào đang chạy trên production
-- Quản lý quy trình duyệt trước khi triển khai
-- Hỗ trợ rollback nhanh khi model mới gặp vấn đề
+### FastAPI
 
-### Vòng đời Model (Model Lifecycle)
+- Framework Python hiện đại, hỗ trợ **async/await**
+- Tự động sinh tài liệu API (Swagger UI tại `/docs`, ReDoc tại `/redoc`)
+- Validation dữ liệu đầu vào với **Pydantic**
+- Hiệu năng cao nhờ Starlette và Uvicorn (ASGI)
+- Type hints giúp code rõ ràng, dễ bảo trì
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                     MODEL LIFECYCLE                                  │
-│                                                                      │
-│  Train                                                               │
-│    │                                                                 │
-│    ▼                                                                 │
-│  Register (đăng ký vào Model Registry)                               │
-│    │                                                                 │
-│    ▼                                                                 │
-│  Automated Validation                                                │
-│    │                                                                 │
-│    ├── FAIL ──► Từ chối, không triển khai                            │
-│    │                                                                 │
-│    └── PASS                                                          │
-│         │                                                            │
-│         ▼                                                            │
-│       Staging (kiểm thử trên môi trường giả lập)                    │
-│         │                                                            │
-│         ▼                                                            │
-│       Human Approve (người duyệt xác nhận)                          │
-│         │                                                            │
-│         ▼                                                            │
-│       Production (phục vụ dự đoán thực tế)                           │
-│         │                                                            │
-│         ▼                                                            │
-│       Monitoring (giám sát liên tục)                                 │
-│         │                                                            │
-│         ├── Bình thường ──► Tiếp tục phục vụ                         │
-│         │                                                            │
-│         └── Phát hiện vấn đề ──► Rollback (quay về phiên bản cũ)    │
-│                                                                      │
-└─────────────────────────────────────────────────────────────────────┘
+### Docker
+
+| Khái niệm | Giải thích |
+|------------|------------|
+| **Image** | Bản thiết kế bất biến chứa code, dependencies, runtime |
+| **Container** | Thực thể đang chạy từ image, cô lập với hệ thống host |
+| **Dockerfile** | File kịch bản định nghĩa cách build image |
+| **Layer caching** | Mỗi lệnh trong Dockerfile tạo một layer; Docker cache layer không đổi để build nhanh hơn |
+
+### API Contract
+
+**Input** — `POST /predict`:
+```json
+{
+  "features": {
+    "area": 120.5,
+    "bedrooms": 3,
+    "location": "quan_7"
+  }
+}
 ```
 
-### Model Governance
-
-Model Governance đảm bảo mỗi model đưa lên production đều có thể truy vết và kiểm soát:
-
-| Khía cạnh         | Mô tả                                                                | Ví dụ                                      |
-| ------------------ | --------------------------------------------------------------------- | ------------------------------------------- |
-| Traceability       | Truy vết nguồn gốc model: run nào, dữ liệu nào, code version nào    | `run_id`, `dataset_version`, `git_commit`   |
-| Audit Trail        | Nhật ký mọi thay đổi trạng thái của model                            | Ai duyệt, khi nào promote, lý do rollback  |
-| Approval Workflow  | Quy trình phê duyệt trước khi model lên production                   | Validation tự động + duyệt thủ công         |
-
-### Model Card
-
-Model Card là tài liệu mô tả model, bao gồm:
-
-- Mục đích sử dụng và giới hạn của model
-- Dữ liệu huấn luyện (nguồn, kích thước, thời gian)
-- Hiệu năng trên các tập dữ liệu khác nhau
-- Các rủi ro đã biết và hướng giảm thiểu
-- Hướng dẫn sử dụng và liên hệ người phụ trách
+**Output**:
+```json
+{
+  "prediction": 3250000000,
+  "latency_ms": 12.5,
+  "model_version": "1.0.0"
+}
+```
 
 ---
 
 ## Cấu trúc file mới thêm
 
 ```
-mlops-starter-repo/
-├── scripts/
-│   ├── validate_model.py        # Kiểm tra metrics so với ngưỡng
-│   └── promote_model.py         # Promote hoặc rollback model version
-├── configs/
-│   └── thresholds.yaml          # Ngưỡng chấp nhận cho metrics
-└── docs/
-    └── model-card.md            # Tài liệu mô tả model
+session-05-docker-fastapi/
+├── app/
+│   ├── main.py              # FastAPI app, endpoints, lifespan
+│   ├── schemas.py           # Pydantic models cho request/response
+│   ├── model_loader.py      # ModelHolder class, load từ MLflow
+│   └── predictors/
+│       └── tabular.py       # Logic dự đoán cho tabular data
+├── Dockerfile               # Đóng gói ứng dụng
+├── .dockerignore             # Loại trừ file không cần thiết
+├── tests/
+│   └── test_api.py          # Integration tests cho API
+└── scripts/
+    └── sample_predict.py    # Script gửi request mẫu
 ```
 
 ---
 
 ## Hướng dẫn thực hành
 
-### Bước 1: Checkout, chạy data pipeline và training
+### Bước 1: Checkout branch
 
-```powershell
-git checkout -b session04-registry
-
-python src/ingestion/ingest.py
-python src/validation/validate.py
-python src/preprocessing/preprocess.py
-python src/split/split.py
-python src/training/train.py
+```bash
+git checkout session-05-docker-fastapi
 ```
 
-Hoặc sử dụng lại kết quả từ buổi 03 nếu đã có `reports/evaluation.json` và `models/model.pkl`.
+### Bước 2: Cài thêm dependencies
 
-### Bước 2: Xem ngưỡng chấp nhận
-
-Nội dung file `configs/thresholds.yaml`:
-
-```yaml
-model_quality:
-  rmse_max: 30000
-  mae_max: 20000
-  r2_min: 0.60
-  mape_max: 25.0
-
-serving:
-  latency_p95_ms: 200
-  error_rate_max: 0.01
+```bash
+pip install fastapi uvicorn httpx python-multipart
 ```
 
-| Metric      | Ngưỡng              | Ý nghĩa                                        |
-| ----------- | -------------------- | ----------------------------------------------- |
-| rmse_max    | 30.000               | RMSE phải nhỏ hơn 30.000                       |
-| mae_max     | 20.000               | MAE phải nhỏ hơn 20.000                        |
-| r2_min      | 0.60                 | R² phải lớn hơn hoặc bằng 0.60                 |
-| mape_max    | 25.0                 | MAPE phải nhỏ hơn 25%                          |
-| latency_p95 | 200ms                | Thời gian phản hồi p95 của API phải dưới 200ms |
-| error_rate  | 1%                   | Tỷ lệ lỗi API phải dưới 1%                     |
+### Bước 3: Chạy API local
 
-### Bước 3: Chạy validate_model.py
+```bash
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
 
-```powershell
-python scripts/validate_model.py
+> **Lưu ý:** Model sẽ không load được nếu chưa có MLflow server đang chạy, nhưng endpoint `/health` vẫn hoạt động bình thường.
+
+### Bước 4: Test thủ công bằng trình duyệt hoặc curl
+
+Mở trình duyệt và truy cập **Swagger UI**:
+
+```
+http://localhost:8000/docs
+```
+
+Hoặc dùng curl:
+
+```bash
+curl http://localhost:8000/health
+```
+
+### Bước 5: Test endpoint `/health`
+
+```bash
+curl -X GET http://localhost:8000/health
 ```
 
 Kết quả mong đợi:
-
-```
-╔══════════════════════════════════════════════════════╗
-║             KẾT QUẢ VALIDATION MODEL                ║
-╠══════════════════════════════════════════════════════╣
-║  RMSE:  25431.12 < 30000.00  ──► PASS ✓            ║
-║  MAE:   18234.56 < 20000.00  ──► PASS ✓            ║
-║  R²:    0.72     > 0.60      ──► PASS ✓            ║
-║  MAPE:  15.3%    < 25.0%     ──► PASS ✓            ║
-╠══════════════════════════════════════════════════════╣
-║  KẾT QUẢ TỔNG: PASS — Model đủ điều kiện triển khai║
-╚══════════════════════════════════════════════════════╝
+```json
+{
+  "status": "healthy",
+  "model_loaded": false
+}
 ```
 
-### Bước 4: Đăng ký model vào MLflow Model Registry
+### Bước 6: Build Docker image
 
-**Cách 1 — Dùng MLflow CLI:**
-
-```powershell
-mlflow models register -m "runs:/<run_id>/model" -n "house-price-model"
+```bash
+docker build -t house-price-api .
 ```
 
-**Cách 2 — Dùng Python:**
+### Bước 7: Chạy Docker container
 
-```python
-import mlflow
-
-mlflow.set_tracking_uri("http://localhost:5000")
-
-result = mlflow.register_model(
-    model_uri="runs:/<run_id>/model",
-    name="house-price-model"
-)
-print(f"Đã đăng ký phiên bản: {result.version}")
+```bash
+docker run -p 8000:8000 house-price-api
 ```
 
-### Bước 5: Promote model
-
-```powershell
-python scripts/promote_model.py champion
+Kiểm tra container đang chạy:
+```bash
+docker ps
 ```
 
-Kết quả mong đợi:
+### Bước 8: Chạy integration tests
 
-```
-Model 'house-price-model' phiên bản 1 đã được gán alias 'champion'.
-Phiên bản này sẽ được sử dụng khi serving.
-```
-
-Các alias phổ biến:
-
-| Alias      | Ý nghĩa                                          |
-| ---------- | ------------------------------------------------- |
-| candidate  | Model mới được đăng ký, chờ validation            |
-| staging    | Model đã qua validation, đang kiểm thử            |
-| champion   | Model đang phục vụ trên production                 |
-
-### Bước 6: Đọc và chỉnh sửa Model Card
-
-```powershell
-type docs\model-card.md
+```bash
+pytest tests/test_api.py -v
 ```
 
-Mẫu Model Card:
+### Bước 9: Dùng script gửi request mẫu
 
-```markdown
-# Model Card — House Price Prediction
-
-## Tổng quan
-- **Tên model:** house-price-model
-- **Phiên bản:** 1
-- **Thuật toán:** GradientBoostingRegressor
-- **Ngày huấn luyện:** 2026-09-03
-- **Người phụ trách:** MLOps Team
-
-## Mục đích sử dụng
-Dự đoán giá nhà dựa trên các đặc trưng: diện tích, số phòng, tuổi nhà, vị trí.
-
-## Dữ liệu huấn luyện
-- **Nguồn:** data/raw/houses.csv
-- **Số lượng:** 1000 bản ghi
-- **Thời gian thu thập:** 2026
-- **Chia tập:** train 70%, validation 10%, test 20%
-
-## Hiệu năng
-| Tập dữ liệu | RMSE     | MAE      | R²   | MAPE  |
-| ------------ | -------- | -------- | ---- | ----- |
-| Validation   | 25431.12 | 18234.56 | 0.72 | 15.3% |
-| Test         | 26102.45 | 19012.33 | 0.70 | 16.1% |
-
-## Giới hạn và rủi ro
-- Chỉ áp dụng cho thị trường bất động sản trong phạm vi dữ liệu huấn luyện
-- Không xử lý tốt khi giá nhà biến động đột biến (data drift)
-- Dữ liệu huấn luyện có thể không đại diện cho mọi khu vực
-
-## Hướng dẫn sử dụng
-Gọi API prediction endpoint với JSON chứa các trường: area, bedrooms,
-bathrooms, age, garage, location.
+```bash
+python scripts/sample_predict.py
 ```
 
-Chỉnh sửa Model Card phù hợp với kết quả thực tế của bạn.
-
-### Bước 7: Thử rollback scenario
-
-Giả sử model mới (phiên bản 2) có kết quả kém hơn, bạn muốn quay về phiên bản 1:
-
-```powershell
-python scripts/promote_model.py champion --version 1
-```
-
-Kết quả:
-
-```
-Rollback thành công. Model 'house-price-model' phiên bản 1 đã được gán lại alias 'champion'.
-```
+Script sẽ gửi request đến `/predict` và in kết quả ra terminal.
 
 ---
 
 ## Chi tiết code
 
-### `scripts/validate_model.py`
+### `app/schemas.py`
 
-Chức năng:
+```python
+from pydantic import BaseModel
+from typing import Any, Optional
 
-1. Đọc file `reports/evaluation.json` để lấy metrics thực tế
-2. Đọc file `configs/thresholds.yaml` để lấy ngưỡng chấp nhận
-3. So sánh từng metric với ngưỡng tương ứng:
-   - `rmse` ≤ `rmse_max` → PASS
-   - `mae` ≤ `mae_max` → PASS
-   - `r2` ≥ `r2_min` → PASS
-   - `mape` ≤ `mape_max` → PASS
-4. In kết quả PASS/FAIL cho từng metric
-5. Kết luận tổng: PASS nếu tất cả metrics đạt, FAIL nếu bất kỳ metric nào không đạt
-6. Trả về exit code 0 (thành công) hoặc 1 (thất bại) — hữu ích cho CI/CD
+class PredictRequest(BaseModel):
+    features: dict[str, Any]
 
-### `scripts/promote_model.py`
+class PredictResponse(BaseModel):
+    prediction: float
+    latency_ms: float
+    model_version: str
 
-Chức năng:
+class HealthResponse(BaseModel):
+    status: str
+    model_loaded: bool
 
-1. Nhận đối số dòng lệnh: alias (candidate/staging/champion) và tùy chọn version
-2. Kết nối đến MLflow Tracking Server
-3. Lấy phiên bản model mới nhất (hoặc phiên bản chỉ định)
-4. Gán alias cho phiên bản đó bằng `client.set_registered_model_alias()`
-5. In xác nhận thành công
-
-Sử dụng:
-
-```powershell
-python scripts/promote_model.py candidate
-python scripts/promote_model.py staging
-python scripts/promote_model.py champion
-python scripts/promote_model.py champion --version 1
+class ModelInfoResponse(BaseModel):
+    model_name: Optional[str]
+    model_version: Optional[str]
+    model_uri: Optional[str]
+    features_expected: Optional[list[str]]
 ```
 
-### `configs/thresholds.yaml`
+### `app/model_loader.py`
 
-```yaml
-model_quality:
-  rmse_max: 30000
-  mae_max: 20000
-  r2_min: 0.60
-  mape_max: 25.0
+```python
+import mlflow
+import time
 
-serving:
-  latency_p95_ms: 200
-  error_rate_max: 0.01
+class ModelHolder:
+    def __init__(self):
+        self.model = None
+        self.model_name = None
+        self.model_version = None
+        self.model_uri = None
+
+    def load(self, model_uri: str):
+        self.model_uri = model_uri
+        self.model = mlflow.pyfunc.load_model(model_uri)
+        self.model_name = model_uri.split("/")[-1]
+
+    def predict(self, features: dict) -> tuple[float, float]:
+        import pandas as pd
+        start = time.perf_counter()
+        df = pd.DataFrame([features])
+        prediction = self.model.predict(df)[0]
+        latency_ms = (time.perf_counter() - start) * 1000
+        return float(prediction), latency_ms
 ```
 
-Hai nhóm ngưỡng:
+### `app/main.py`
 
-- **model_quality** — Dùng trong `validate_model.py` để kiểm tra chất lượng model trước khi triển khai
-- **serving** — Dùng trong monitoring để kiểm tra hiệu năng API sau khi triển khai
+```python
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+from app.schemas import PredictRequest, PredictResponse, HealthResponse, ModelInfoResponse
+from app.model_loader import ModelHolder
+import os
+
+model_holder = ModelHolder()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    model_uri = os.getenv("MODEL_URI", "")
+    if model_uri:
+        model_holder.load(model_uri)
+    yield
+
+app = FastAPI(title="House Price Prediction API", lifespan=lifespan)
+
+@app.get("/health", response_model=HealthResponse)
+def health():
+    return HealthResponse(status="healthy", model_loaded=model_holder.model is not None)
+
+@app.post("/predict", response_model=PredictResponse)
+def predict(request: PredictRequest):
+    prediction, latency_ms = model_holder.predict(request.features)
+    return PredictResponse(
+        prediction=prediction,
+        latency_ms=latency_ms,
+        model_version=model_holder.model_version or "unknown",
+    )
+
+@app.get("/model-info", response_model=ModelInfoResponse)
+def model_info():
+    return ModelInfoResponse(
+        model_name=model_holder.model_name,
+        model_version=model_holder.model_version,
+        model_uri=model_holder.model_uri,
+        features_expected=None,
+    )
+```
+
+### `Dockerfile`
+
+```dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY app/ ./app/
+
+EXPOSE 8000
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+- Dùng `python:3.11-slim` để giảm kích thước image
+- Copy `requirements.txt` trước để tận dụng **layer caching** (chỉ cài lại khi file thay đổi)
+- `EXPOSE 8000` khai báo cổng cho container
+- `CMD` chạy Uvicorn khi container khởi động
 
 ---
 
 ## Bài tập sau buổi học
 
-1. **Tự động hóa quy trình** — Viết script kết hợp: train → validate → register → promote tự động nếu tất cả metrics đạt ngưỡng.
-2. **Thêm ngưỡng nghiêm ngặt hơn** — Điều chỉnh `thresholds.yaml` (ví dụ: r2_min = 0.75) và quan sát model nào PASS/FAIL.
-3. **Viết Model Card chi tiết** — Bổ sung phần: phân tích công bằng (fairness) theo location, so sánh hiệu năng giữa các nhóm dữ liệu.
-4. **Rollback có kiểm tra** — Viết script rollback có ghi nhật ký: ai rollback, khi nào, lý do, phiên bản trước và sau.
+1. **Thêm endpoint `/predict/batch`** — nhận danh sách nhiều mẫu dữ liệu, trả về danh sách prediction. Sử dụng `list[PredictRequest]` làm input.
+
+2. **Thêm input validation** — trong `schemas.py`, thêm validator kiểm tra `features` không rỗng và các giá trị số phải dương. Dùng `@field_validator` của Pydantic v2.
+
+3. **Viết thêm test cases** — trong `tests/test_api.py`, thêm test cho trường hợp: request thiếu field, request có giá trị âm, request body rỗng. Kiểm tra API trả về đúng mã lỗi (422).
+
+4. **Tối ưu Dockerfile** — thêm `.dockerignore` để loại trừ `__pycache__`, `.git`, `*.pyc`, `data/`. So sánh kích thước image trước và sau khi tối ưu.
 
 ---
 
 ## Buổi tiếp theo
 
-**Buổi 05 — Đóng gói Model và Triển khai API**: Đóng gói model bằng Docker, xây dựng REST API với FastAPI, viết health check và test endpoint dự đoán.
+**Buổi 06 — CI/CD và Quality Gate**: Xây dựng pipeline CI/CD tự động với GitLab CI, thiết lập quality gates (lint, test, validate config, build Docker), và viết script kiểm tra cấu hình dự án.
