@@ -1,19 +1,19 @@
 import pandas as pd
 import sys
 
-REQUIRED_COLUMNS = ["area", "bedrooms", "bathrooms", "age", "garage", "location", "price"]
-NUMERIC_COLUMNS = ["area", "bedrooms", "bathrooms", "age", "garage", "price"]
+REQUIRED_COLUMNS = ["area", "bedrooms", "bathrooms", "age", "floors", "location", "price"]
+NUMERIC_COLUMNS = ["area", "bedrooms", "bathrooms", "age", "floors", "price"]
 
 RANGE_CHECKS = {
-    "area": (10, 10000),
-    "bedrooms": (0, 20),
-    "bathrooms": (0, 10),
-    "age": (0, 200),
-    "garage": (0, 10),
-    "price": (1000, 100000000),
+    "area": (300, 10000),
+    "bedrooms": (1, 10),
+    "bathrooms": (0.5, 8),
+    "age": (0, 120),
+    "floors": (1, 4),
+    "price": (50000, 3000000),
 }
 
-VALID_LOCATIONS = [f"District_{i}" for i in range(1, 21)]
+VALID_LOCATIONS = None  # zipcodes from King County
 
 def validate_columns(df):
     missing = [c for c in REQUIRED_COLUMNS if c not in df.columns]
@@ -43,8 +43,8 @@ def validate_ranges(df):
     print("[Validation] Range check passed")
 
 def validate_location(df):
-    invalid = df[~df["location"].isin(VALID_LOCATIONS)]
-    assert invalid.empty, f"{len(invalid)} rows with invalid location"
+    empty = df["location"].astype(str).str.strip().eq("") | df["location"].isna()
+    assert not empty.any(), f"{int(empty.sum())} rows with empty location"
     print("[Validation] Location check passed")
 
 def run_validation(df):

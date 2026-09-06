@@ -11,7 +11,9 @@ def ingest(config=None):
         config = load_config()
     raw_path = config["data"]["raw_path"]
     print(f"[Ingestion] Reading data from {raw_path}")
-    df = pd.read_csv(raw_path)
+    df = pd.read_csv(raw_path, dtype={"location": str})
+    if "location" in df.columns:
+        df["location"] = df["location"].astype(str)
     print(f"[Ingestion] Loaded {len(df)} rows, {len(df.columns)} columns")
     return df
 

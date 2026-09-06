@@ -1,4 +1,11 @@
 stages:
+  map_raw:
+    cmd: python scripts/prepare_king_county.py
+    deps:
+      - data/raw/kc_house_data.csv
+      - scripts/prepare_king_county.py
+    outs:
+      - data/raw/houses.csv
   ingest:
     cmd: python src/ingestion/ingest.py
     deps:
