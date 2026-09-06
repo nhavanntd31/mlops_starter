@@ -1,4 +1,4 @@
-﻿project:
+project:
   name: house-price-prediction
   version: "0.1.0"
   random_seed: 42
@@ -6,9 +6,5 @@
 data:
   raw_path: data/raw/kc_house_data.csv
   processed_dir: data/processed
-  test_size: 0.2
-  val_size: 0.1
-
-
-
-
+  test_size: 0.3
+  val_size: 0.15
