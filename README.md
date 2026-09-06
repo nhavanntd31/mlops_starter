@@ -1,5 +1,9 @@
 # Buổi 08 — Tích hợp End-to-End với Docker Compose
 
+> **Dataset:** [House Sales in King County, USA](https://www.kaggle.com/datasets/harlfoxem/housesalesprediction) (`data/raw/kc_house_data.csv`), đã map sang `data/raw/houses.csv` (~21510 rows; `sqft_living→area`, `yr_built→age`, `zipcode→location`, `floors`).
+> Chuẩn bị lại: `python scripts/prepare_king_county.py`
+
+
 ## Mục tiêu buổi học
 
 - Tích hợp tất cả thành phần vào một stack duy nhất bằng Docker Compose
