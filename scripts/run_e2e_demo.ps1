@@ -7,7 +7,7 @@ Write-Host "========================================" -ForegroundColor Cyan
 
 Write-Host ""
 Write-Host "[Buoc 1] Kiem tra du lieu tho..." -ForegroundColor Yellow
-python -c "import pandas as pd; df = pd.read_csv('data/raw/houses.csv'); print(f'  Du lieu: {len(df)} dong, {len(df.columns)} cot')"
+python -c "import pandas as pd; df = pd.read_csv('data/raw/kc_house_data.csv'); print(f'  Du lieu: {len(df)} dong, {len(df.columns)} cot')"
 
 Write-Host ""
 Write-Host "[Buoc 2] Chay validation du lieu..." -ForegroundColor Yellow
