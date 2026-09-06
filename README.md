@@ -67,6 +67,8 @@ Các file / lệnh quan trọng:
 | `dvc dag` | Xem đồ thị phụ thuộc các stage |
 | `dvc status` | Xem stage/data nào đã đổi so với lần chạy trước |
 | `dvc add` | Đưa file data vào DVC tracking |
+| `dvc push` / `dvc pull` | Upload / download data với remote |
+| `dvc checkout` | Khôi phục data khớp meta `.dvc` hiện tại |
 
 Pipeline trong `dvc.yaml` của buổi này:
 
@@ -229,6 +231,56 @@ dvc repro preprocess
 dvc repro split
 ```
 
+**Bước 3h — Cấu hình remote và `dvc push` / `dvc pull`**
+
+Lab dùng remote **local folder** (không cần cloud). Tạo thư mục cạnh repo:
+
+```powershell
+mkdir ..\dvc-storage
+dvc remote add -d localremote ..\dvc-storage
+dvc remote list
+git add .dvc/config
+git commit -m "chore: add local DVC remote"
+```
+
+Đẩy data đã track lên remote:
+
+```powershell
+dvc push
+```
+
+Giả lập máy mới / mất file local, rồi kéo lại:
+
+```powershell
+Remove-Item data\raw\kc_house_data.csv
+dvc pull
+dir data\raw\kc_house_data.csv
+```
+
+`dvc push` = upload cache/data lên remote.  
+`dvc pull` = download theo `.dvc` meta đang có trên Git.
+
+> Buổi 08 có thể đổi remote sang MinIO (`s3://...`) — cùng lệnh `push`/`pull`.
+
+**Bước 3i — Versioning data (Git tag + DVC)**
+
+1. Mỗi lần đổi dataset: `dvc add data/raw/kc_house_data.csv` → commit file `.dvc` → `dvc push`
+2. Gắn version:
+
+```powershell
+git tag data-v1
+```
+
+3. Sau này lấy lại đúng version:
+
+```powershell
+git checkout data-v1
+dvc checkout
+dvc pull
+```
+
+Git giữ meta (`.dvc`), DVC giữ file nặng (remote/cache).
+
 ### Bước 4: Kiểm tra kết quả
 
 ```powershell
@@ -316,7 +368,7 @@ Module chia dữ liệu thành 3 tập:
 
 1. **Thêm quy tắc validation** — Viết thêm kiểm tra: `bathrooms` ≤ `bedrooms`, `age` ≥ 0, phát hiện outlier bằng IQR.
 2. **Xử lý giá trị thiếu** — Thay vì chỉ kiểm tra null, hãy viết logic xử lý: điền median cho biến số, điền mode cho biến phân loại.
-3. **Version dữ liệu bằng DVC** — Chạy đủ `dvc init` → `dvc add data/raw/kc_house_data.csv` → `dvc repro` → `dvc dag`. Đổi `test_size` rồi `dvc repro` lại và giải thích stage nào bị re-run.
+3. **Version dữ liệu bằng DVC** — `dvc add` → commit `.dvc` → `dvc push`. Tag `data-v1`, rồi `git checkout` + `dvc pull` để khôi phục. Đổi `test_size` và `dvc repro`, giải thích stage nào re-run.
 4. **Viết thêm test** — Bổ sung test case: kiểm tra tổng số dòng train + val + test = tổng dữ liệu sau ingest, kiểm tra không có rò rỉ dữ liệu giữa các tập.
 
 ---
