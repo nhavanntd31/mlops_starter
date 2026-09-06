@@ -14,7 +14,7 @@
 
 Model sử dụng thuật toán Gradient Boosting Regression để dự đoán giá nhà
 dựa trên 6 đặc trưng đầu vào: diện tích, số phòng ngủ, số phòng tắm,
-tuổi nhà, số chỗ đỗ xe và vị trí.
+tuổi nhà, số tầng và zipcode.
 
 ## Dữ liệu huấn luyện
 
@@ -30,7 +30,7 @@ tuổi nhà, số chỗ đỗ xe và vị trí.
 | bedrooms | int | Số phòng ngủ |
 | bathrooms | int | Số phòng tắm |
 | age | int | Tuổi nhà (năm) |
-| floors | int | Số tầng |
+| floors | float | Số tầng |
 | location | str | Vị trí (mã hóa LabelEncoder) |
 
 ## Tham số huấn luyện
