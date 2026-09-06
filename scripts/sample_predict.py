@@ -13,12 +13,12 @@ def get_model_info():
 
 def predict():
     payload = {
-        "area": 150.0,
+        "area": 2000.0,
         "bedrooms": 3,
         "bathrooms": 2,
         "age": 10,
-        "garage": 1,
-        "location": "District_1"
+        "floors": 1.0,
+        "location": "98178"
     }
     resp = requests.post(f"{BASE_URL}/predict", json=payload)
     print(f"Prediction: {json.dumps(resp.json(), indent=2)}")
