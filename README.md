@@ -1,8 +1,8 @@
 # Buổi 01 — Tổng quan MLOps và Kiến trúc Production
 
-> **Dataset:** [House Sales in King County, USA](https://www.kaggle.com/datasets/harlfoxem/housesalesprediction) (`data/raw/kc_house_data.csv`), raw `data/raw/kc_house_data.csv` (~21510 rows; `sqft_living→area`, `yr_built→age`, `zipcode→location`, `floors`).
-> Chuẩn bị lại: `# column mapping in src/ingestion/ingest.py`
-
+> **Dataset:** [House Sales in King County, USA](https://www.kaggle.com/datasets/harlfoxem/housesalesprediction)
+> File raw duy nhất: `data/raw/kc_house_data.csv` (~21613 rows).
+> Mapping cột nằm trong `src/ingestion/ingest.py` (`sqft_living→area`, `yr_built→age`, `zipcode→location`).
 
 ## Mục tiêu buổi học
 
