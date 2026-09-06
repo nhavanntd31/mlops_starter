@@ -1,3 +1,4 @@
+from src.ingestion.ingest import ingest
 import pandas as pd
 import sys
 
@@ -58,5 +59,5 @@ def run_validation(df):
     return True
 
 if __name__ == "__main__":
-    df = pd.read_csv("data/raw/houses.csv")
+    df = ingest()
     run_validation(df)
