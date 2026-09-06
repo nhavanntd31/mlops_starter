@@ -9,7 +9,7 @@
 ## Training Data
 - Source: [House Sales in King County, USA](https://www.kaggle.com/datasets/harlfoxem/housesalesprediction) (Kaggle, CC0)
 - Raw file: `data/raw/kc_house_data.csv` (~21,613 sales, May 2014–May 2015)
-- Prepared: `data/raw/houses.csv` (~21,510 rows after outlier filter)
+- Ingest maps to training features (~21,510 rows after outlier filter)
 - Mapping: `sqft_living→area`, `2015-yr_built→age`, `zipcode→location`, `floors` kept
 - Split: 70% train, 10% validation, 20% test
 - Preprocessing: LabelEncoder for location (zipcode), StandardScaler for all features

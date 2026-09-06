@@ -1,5 +1,5 @@
 prepare:
-  raw_path: data/raw/houses.csv
+  raw_path: data/raw/kc_house_data.csv
   processed_dir: data/processed
   test_size: 0.2
   val_size: 0.1

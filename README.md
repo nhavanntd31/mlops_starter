@@ -2,13 +2,13 @@
 
 End-to-end MLOps project: data pipeline, training, serving, monitoring.
 
-Dataset: [House Sales in King County, USA](https://www.kaggle.com/datasets/harlfoxem/housesalesprediction) (`data/raw/kc_house_data.csv`), mapped to `data/raw/houses.csv`.
+Dataset: [House Sales in King County, USA](https://www.kaggle.com/datasets/harlfoxem/housesalesprediction) — file `data/raw/kc_house_data.csv`. Ingest maps columns (`sqft_living→area`, `yr_built→age`, `zipcode→location`).
 
 ## Quick Start
 
 ```bash
 python -m venv .venv
-.venv\Scripts\activate      # Windows
+.venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
@@ -16,7 +16,6 @@ pip install -r requirements.txt
 
 ```bash
 kaggle datasets download harlfoxem/housesalesprediction -p data/raw --unzip
-python scripts/prepare_king_county.py
 ```
 
 ## Run Data Pipeline

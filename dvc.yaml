@@ -1,15 +1,8 @@
 stages:
-  map_raw:
-    cmd: python scripts/prepare_king_county.py
-    deps:
-      - data/raw/kc_house_data.csv
-      - scripts/prepare_king_county.py
-    outs:
-      - data/raw/houses.csv
   prepare:
     cmd: python -c "from src.ingestion.ingest import ingest; from src.preprocessing.preprocess import preprocess; from src.split.split import split_data; df=ingest(); df=preprocess(df); split_data(df)"
     deps:
-      - data/raw/houses.csv
+      - data/raw/kc_house_data.csv
       - src/ingestion/ingest.py
       - src/validation/validate.py
       - src/preprocessing/preprocess.py

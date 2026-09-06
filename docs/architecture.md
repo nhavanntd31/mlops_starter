@@ -6,10 +6,10 @@
 data/raw/kc_house_data.csv (Kaggle King County)
     |
     v
-data/raw/houses.csv (mapped features)
+[Ingest] -- map columns in src/ingestion/ingest.py
     |
     v
-[Data Pipeline] -- src/ingestion, validation, preprocessing, split
+[Data Pipeline] -- validation, preprocessing, split
     |
     v
 data/processed/
