@@ -18,7 +18,7 @@ tuổi nhà, số tầng và zipcode.
 
 ## Dữ liệu huấn luyện
 
-- **Nguồn**: King County house sales → houses.csv (~21510 bản ghi)
+- **Nguồn**: King County house sales → kc_house_data.csv (~21510 bản ghi)
 - **Chia tập**: 70% train, 10% validation, 20% test
 - **Tiền xử lý**: LabelEncoder cho location, StandardScaler cho biến số
 
