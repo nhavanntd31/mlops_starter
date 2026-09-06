@@ -144,15 +144,26 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### Bước 2: Kiểm tra dataset
+### Bước 2: Kiểm tra dataset (King County)
 
-```python
-python -c "import pandas as pd; df = pd.read_csv('data/raw/houses.csv'); print(df.shape); print(df.head())"
+Dataset thật từ Kaggle nằm ở `data/raw/kc_house_data.csv` (~21613 sales, Seattle 2014–2015).
+Pipeline lab dùng bản đã map `data/raw/houses.csv` (cùng nguồn, schema gọn hơn).
+
+```powershell
+python -c "import pandas as pd; raw = pd.read_csv('data/raw/kc_house_data.csv'); print('KC raw:', raw.shape); print(raw[['price','bedrooms','bathrooms','sqft_living','yr_built','zipcode','floors']].head())"
+
+python scripts/prepare_king_county.py
+
+python -c "import pandas as pd; df = pd.read_csv('data/raw/houses.csv'); print('Mapped:', df.shape); print(df.head())"
 ```
 
-Kết quả mong đợi: `shape = (21510, 7)`, các cột `area, bedrooms, bathrooms, age, floors, location, price`.
+Kết quả mong đợi:
+- `KC raw: (21613, 21)`
+- `Mapped: (21510, 7)` — cột `area, bedrooms, bathrooms, age, floors, location, price`
 
-Mô tả các cột trong dataset:
+Mapping: `sqft_living→area`, `2015-yr_built→age`, `zipcode→location`, giữ `floors`.
+
+Mô tả các cột trong `houses.csv` (đã map):
 
 | Cột        | Kiểu dữ liệu | Mô tả                                      | Ví dụ           |
 | ---------- | -------------- | -------------------------------------------- | ---------------- |
