@@ -28,7 +28,7 @@ def model_info():
     return ModelInfoResponse(
         model_type="GradientBoostingRegressor",
         model_version=model_holder.version,
-        features=["area", "bedrooms", "bathrooms", "age", "garage", "location"],
+        features=["area", "bedrooms", "bathrooms", "age", "floors", "location"],
         loaded_at=model_holder.loaded_at,
     )
 
@@ -42,7 +42,7 @@ def predict(request: PredictRequest):
             bedrooms=request.bedrooms,
             bathrooms=request.bathrooms,
             age=request.age,
-            garage=request.garage,
+            floors=request.floors,
             location=request.location,
         )
         return PredictResponse(
