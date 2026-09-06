@@ -18,7 +18,7 @@ tuổi nhà, số chỗ đỗ xe và vị trí.
 
 ## Dữ liệu huấn luyện
 
-- **Nguồn**: File houses.csv (1000 bản ghi)
+- **Nguồn**: King County house sales (~21510 bản ghi)
 - **Chia tập**: 70% train, 10% validation, 20% test
 - **Tiền xử lý**: LabelEncoder cho location, StandardScaler cho biến số
 
@@ -26,11 +26,11 @@ tuổi nhà, số chỗ đỗ xe và vị trí.
 
 | Đặc trưng | Kiểu | Mô tả |
 |-----------|------|-------|
-| area | float | Diện tích (m²) |
+| area | float | Diện tích (sqft) |
 | bedrooms | int | Số phòng ngủ |
 | bathrooms | int | Số phòng tắm |
 | age | int | Tuổi nhà (năm) |
-| garage | int | Số chỗ đỗ xe |
+| floors | int | Số tầng |
 | location | str | Vị trí (mã hóa LabelEncoder) |
 
 ## Tham số huấn luyện
@@ -45,14 +45,14 @@ tuổi nhà, số chỗ đỗ xe và vị trí.
 | Metric | Ngưỡng | Mô tả |
 |--------|--------|-------|
 | R² | >= 0.60 | Hệ số xác định |
-| RMSE | <= 50000 | Sai số bình phương trung bình |
-| MAE | <= 35000 | Sai số tuyệt đối trung bình |
+| RMSE | <= 250000 | Sai số bình phương trung bình |
+| MAE | <= 150000 | Sai số tuyệt đối trung bình |
 
 ## Giới hạn và rủi ro
 
-- Model chỉ được huấn luyện trên dữ liệu mô phỏng, không phản ánh thị trường thực
+- Model chỉ được huấn luyện trên dữ liệu King County (Kaggle), không phản ánh thị trường thực
 - Hiệu năng có thể giảm khi phân phối dữ liệu thay đổi (data drift)
-- Không xử lý được các vị trí ngoài danh sách District_1 đến District_20
+- Không xử lý được các vị trí ngoài danh sách các zipcode King County
 
 ## Quy trình cập nhật
 

@@ -3,12 +3,12 @@ from typing import Optional
 from datetime import datetime
 
 class PredictRequest(BaseModel):
-    area: float = Field(..., gt=0, description="Area in sqm")
+    area: float = Field(..., gt=0, description="Living area in sqft")
     bedrooms: int = Field(..., ge=0)
-    bathrooms: int = Field(..., ge=0)
+    bathrooms: float = Field(..., ge=0)
     age: int = Field(..., ge=0)
-    garage: int = Field(..., ge=0)
-    location: str = Field(..., description="District name")
+    floors: float = Field(..., gt=0)
+    location: str = Field(..., description="Zipcode")
 
 class PredictResponse(BaseModel):
     predicted_price: float

@@ -25,7 +25,7 @@ def preprocess(df, config=None, fit=True, artifacts_dir="models"):
             le = pickle.load(f)
         df["location"] = le.transform(df["location"])
 
-    numeric_cols = ["area", "bedrooms", "bathrooms", "age", "garage"]
+    numeric_cols = ["area", "bedrooms", "bathrooms", "age", "floors"]
     scaler = StandardScaler()
     if fit:
         df[numeric_cols] = scaler.fit_transform(df[numeric_cols])
