@@ -1,4 +1,4 @@
-﻿import os, shutil
+import os, shutil
 
 def w(path, content):
     os.makedirs(os.path.dirname(path) if os.path.dirname(path) else '.', exist_ok=True)
@@ -11,7 +11,7 @@ def run(cmd):
 # ===== SESSION 01 =====
 shutil.copy('session01-README.md', 'README.md')
 w('requirements.txt', 'pandas>=2.0\nscikit-learn>=1.3\nmlflow>=2.10\ndvc>=3.0\npyyaml>=6.0\n')
-w('configs/params.yaml', 'project:\n  name: house-price-prediction\n  version: "0.1.0"\n  random_seed: 42\n\ndata:\n  raw_path: data/raw/houses.csv\n  processed_dir: data/processed\n  test_size: 0.2\n  val_size: 0.1\n')
+w('configs/params.yaml', 'project:\n  name: house-price-prediction\n  version: "0.1.0"\n  random_seed: 42\n\ndata:\n  raw_path: data/raw/kc_house_data.csv\n  processed_dir: data/processed\n  test_size: 0.2\n  val_size: 0.1\n')
 w('docs/architecture.md', '# Ki\u1ebfn tr\u00fac h\u1ec7 th\u1ed1ng\n\nData Pipeline -> Training -> Registry -> Serving -> Monitoring -> E2E\n\nXem README.md \u0111\u1ec3 bi\u1ebft chi ti\u1ebft.\n')
 for d in ['data/interim','data/processed','models','reports','logs','src/ingestion','src/validation','src/preprocessing','src/split','src/training','app','app/predictors','tests','scripts','infra','infra/ansible','monitoring','monitoring/grafana/dashboards','monitoring/prometheus']:
     os.makedirs(d, exist_ok=True)
@@ -137,13 +137,13 @@ def split_data(df, config=None):
     return result
 ''')
 
-w('params.yaml', 'prepare:\n  raw_path: data/raw/houses.csv\n  processed_dir: data/processed\n  test_size: 0.2\n  val_size: 0.1\n  seed: 42\n')
+w('params.yaml', 'prepare:\n  raw_path: data/raw/kc_house_data.csv\n  processed_dir: data/processed\n  test_size: 0.2\n  val_size: 0.1\n  seed: 42\n')
 
 w('dvc.yaml', '''stages:
   prepare:
     cmd: python -c "from src.ingestion.ingest import ingest; from src.preprocessing.preprocess import preprocess; from src.split.split import split_data; df=ingest(); df=preprocess(df); split_data(df)"
     deps:
-      - data/raw/houses.csv
+      - data/raw/kc_house_data.csv
       - src/ingestion/ingest.py
       - src/validation/validate.py
       - src/preprocessing/preprocess.py
@@ -200,7 +200,7 @@ run('git checkout -b session/03')
 shutil.copy('session03-README.md', 'README.md')
 
 # Update configs/params.yaml with training section
-w('configs/params.yaml', 'project:\n  name: house-price-prediction\n  version: "0.1.0"\n  random_seed: 42\n\ndata:\n  raw_path: data/raw/houses.csv\n  processed_dir: data/processed\n  test_size: 0.2\n  val_size: 0.1\n\ntraining:\n  n_estimators: 200\n  max_depth: 5\n  learning_rate: 0.1\n  subsample: 0.8\n')
+w('configs/params.yaml', 'project:\n  name: house-price-prediction\n  version: "0.1.0"\n  random_seed: 42\n\ndata:\n  raw_path: data/raw/kc_house_data.csv\n  processed_dir: data/processed\n  test_size: 0.2\n  val_size: 0.1\n\ntraining:\n  n_estimators: 200\n  max_depth: 5\n  learning_rate: 0.1\n  subsample: 0.8\n')
 
 w('src/training/train.py', '''import pandas as pd
 import numpy as np
@@ -371,7 +371,7 @@ w('docs/model-card.md', '''# Model Card \u2014 D\u1ef1 \u0111o\u00e1n Gi\u00e1 N
 - **M\u1ee5c ti\u00eau**: price
 
 ## D\u1eef li\u1ec7u hu\u1ea5n luy\u1ec7n
-- Ngu\u1ed3n: data/raw/houses.csv (200 d\u00f2ng)
+- Ngu\u1ed3n: data/raw/kc_house_data.csv (200 d\u00f2ng)
 - Chia t\u1eadp: 70% train, 10% val, 20% test
 - Ti\u1ec1n x\u1eed l\u00fd: LabelEncoder + StandardScaler
 
