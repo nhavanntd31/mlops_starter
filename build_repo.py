@@ -49,12 +49,12 @@ if __name__ == "__main__":
 
 w('src/validation/validate.py', '''import pandas as pd
 
-REQUIRED_COLUMNS = ["area", "bedrooms", "bathrooms", "age", "garage", "location", "price"]
-NUMERIC_COLUMNS = ["area", "bedrooms", "bathrooms", "age", "garage", "price"]
+REQUIRED_COLUMNS = ["area", "bedrooms", "bathrooms", "age", "floors", "location", "price"]
+NUMERIC_COLUMNS = ["area", "bedrooms", "bathrooms", "age", "floors", "price"]
 VALID_LOCATIONS = ["downtown", "suburban", "rural", "urban", "waterfront"]
 RANGES = {
     "area": (10, 1000), "bedrooms": (1, 10), "bathrooms": (1, 5),
-    "age": (0, 100), "garage": (0, 5), "price": (1, 10_000_000),
+    "age": (0, 100), "floors": (0, 5), "price": (1, 10_000_000),
 }
 
 def validate(df):
@@ -100,7 +100,7 @@ def preprocess(df, output_dir="data/interim"):
     le = LabelEncoder()
     df["location_encoded"] = le.fit_transform(df["location"])
     joblib.dump(le, Path(output_dir) / "label_encoder.pkl")
-    feature_cols = ["area", "bedrooms", "bathrooms", "age", "garage", "location_encoded"]
+    feature_cols = ["area", "bedrooms", "bathrooms", "age", "floors", "location_encoded"]
     scaler = StandardScaler()
     df[feature_cols] = scaler.fit_transform(df[feature_cols])
     joblib.dump(scaler, Path(output_dir) / "scaler.pkl")
@@ -367,7 +367,7 @@ w('docs/model-card.md', '''# Model Card \u2014 D\u1ef1 \u0111o\u00e1n Gi\u00e1 N
 ## Th\u00f4ng tin Model
 - **Lo\u1ea1i**: GradientBoostingRegressor (scikit-learn)
 - **B\u00e0i to\u00e1n**: H\u1ed3i quy b\u1ea3ng \u2014 d\u1ef1 \u0111o\u00e1n gi\u00e1 nh\u00e0 t\u1eeb c\u00e1c \u0111\u1eb7c tr\u01b0ng
-- **\u0110\u1eb7c tr\u01b0ng**: area, bedrooms, bathrooms, age, garage, location_encoded
+- **\u0110\u1eb7c tr\u01b0ng**: area, bedrooms, bathrooms, age, floors, location_encoded
 - **M\u1ee5c ti\u00eau**: price
 
 ## D\u1eef li\u1ec7u hu\u1ea5n luy\u1ec7n
@@ -500,7 +500,7 @@ def client():
         mock_holder.model = MagicMock()
         mock_holder.model_name = "house-price-model"
         mock_holder.model_version = "1"
-        mock_holder.features = ["area", "bedrooms", "bathrooms", "age", "garage", "location_encoded"]
+        mock_holder.features = ["area", "bedrooms", "bathrooms", "age", "floors", "location_encoded"]
         mock_holder.predict.return_value = 150000.0
         from app.main import app
         yield TestClient(app)
@@ -511,7 +511,7 @@ def test_health(client):
     assert resp.json()["status"] == "ok"
 
 def test_predict(client):
-    payload = {"features": {"area": 120, "bedrooms": 3, "bathrooms": 2, "age": 10, "garage": 1, "location_encoded": 0}}
+    payload = {"features": {"area": 120, "bedrooms": 3, "bathrooms": 2, "age": 10, "floors": 1, "location_encoded": 0}}
     resp = client.post("/predict", json=payload)
     assert resp.status_code == 200
     assert "prediction" in resp.json()
@@ -527,7 +527,7 @@ w('scripts/sample_predict.py', '''import httpx, sys
 def main():
     base_url = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8000"
     print(f"Health: {httpx.get(f'{base_url}/health').json()}")
-    payload = {"features": {"area": 150, "bedrooms": 3, "bathrooms": 2, "age": 5, "garage": 1, "location_encoded": 2}}
+    payload = {"features": {"area": 150, "bedrooms": 3, "bathrooms": 2, "age": 5, "floors": 1, "location_encoded": 2}}
     print(f"Predict: {httpx.post(f'{base_url}/predict', json=payload).json()}")
     print(f"Model Info: {httpx.get(f'{base_url}/model-info').json()}")
 

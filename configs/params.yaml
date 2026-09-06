@@ -15,7 +15,7 @@ features:
     - bedrooms
     - bathrooms
     - age
-    - garage
+    - floors
   categorical:
     - location
   target: price
