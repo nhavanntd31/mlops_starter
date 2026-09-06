@@ -178,6 +178,37 @@ Mở `docs/retraining-trigger.md` — mô tả:
 - Quy trình retrain tự động (CT pipeline)
 - Rollback strategy nếu model mới kém hơn
 
+### Bước 8: Chạy Prometheus + Grafana (thực hành visualization)
+
+Trong lúc API đang chạy (`uvicorn` ở cổng 8000), bật Prometheus + Grafana:
+
+```powershell
+docker run -d --name mlops-prom -p 9090:9090 prom/prometheus
+
+docker run -d --name mlops-graf -p 3000:3000 grafana/grafana
+```
+
+1. Mở Prometheus: http://localhost:9090 → Status → Targets (lab đầy đủ scrape qua Compose ở buổi 08)
+2. Mở Grafana: http://localhost:3000 (`admin` / `admin`)
+3. Add data source **Prometheus** → URL `http://host.docker.internal:9090` (Windows) hoặc `http://mlops-prom:9090` nếu cùng network
+4. Gửi thêm traffic (`python scripts/sample_predict.py`) rồi tạo panel đơn giản: `request_count_total` hoặc metric tương ứng trong `/metrics`
+
+Dọn container sau lab:
+
+```powershell
+docker rm -f mlops-prom mlops-graf
+```
+
+### Bước 9: Đọc cấu hình Loki + Promtail
+
+Mở `infra/promtail.yml` và (nếu có) cấu hình Loki. Hiểu luồng:
+
+```
+API logs (file/stdout) → Promtail → Loki → Grafana Explore (LogQL)
+```
+
+Chạy đủ stack Loki/Promtail cùng Compose ở **buổi 08**. Buổi này tập trung đọc config + biết chỗ gắn labels/job.
+
 ---
 
 ## Chi tiết code
