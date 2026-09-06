@@ -1,90 +1,41 @@
-# Kiến trúc Hệ thống MLOps — House Price Prediction
+# Architecture
 
-## Tổng quan
+## Overview
 
-Hệ thống MLOps cho dự án dự đoán giá nhà được thiết kế theo kiến trúc modular,
-bao gồm các thành phần chính: Data Pipeline, Training Pipeline, Model Registry,
-Serving API và Monitoring.
+```
+data/raw/kc_house_data.csv (Kaggle King County)
+    |
+    v
+data/raw/houses.csv (mapped features)
+    |
+    v
+[Data Pipeline] -- src/ingestion, validation, preprocessing, split
+    |
+    v
+data/processed/
+    |
+    v
+[Training] -- src/training/train.py + MLflow tracking
+    |
+    v
+[Model Registry] -- MLflow registry, validate, promote
+    |
+    v
+[Serving] -- app/ FastAPI + Docker
+    |
+    v
+[Monitoring] -- Prometheus, Loki, Grafana
+    |
+    v
+[E2E Stack] -- infra/docker-compose.yml
+```
 
-## Sơ đồ kiến trúc
+## Components
 
-`
-┌──────────────┐    ┌──────────────┐    ┌──────────────────┐
-│  Data Source  │───>│  Ingestion   │───>│   Validation     │
-│ (houses.csv) │    │  (ingest.py) │    │  (validate.py)   │
-└──────────────┘    └──────────────┘    └──────────────────┘
-                                                │
-                                                ▼
-                                        ┌──────────────────┐
-                                        │  Preprocessing   │
-                                        │ (preprocess.py)  │
-                                        └──────────────────┘
-                                                │
-                                                ▼
-                                        ┌──────────────────┐
-                                        │   Train/Val/Test │
-                                        │   (split.py)     │
-                                        └──────────────────┘
-                                                │
-                                                ▼
-┌──────────────┐    ┌──────────────┐    ┌──────────────────┐
-│   MLflow     │<───│   Training   │<───│   Params/Config  │
-│  Tracking    │    │  (train.py)  │    │  (params.yaml)   │
-└──────────────┘    └──────────────┘    └──────────────────┘
-       │                    │
-       ▼                    ▼
-┌──────────────┐    ┌──────────────────┐
-│   Model      │───>│   Serving API    │
-│  Registry    │    │   (FastAPI)      │
-└──────────────┘    └──────────────────┘
-                            │
-                            ▼
-                    ┌──────────────────┐
-                    │   Monitoring     │
-                    │ (Prometheus,     │
-                    │  Grafana, Loki)  │
-                    └──────────────────┘
-`
-
-## Các thành phần chính
-
-### 1. Data Pipeline
-- **Ingestion**: Đọc dữ liệu thô từ CSV
-- **Validation**: Kiểm tra chất lượng dữ liệu (null, duplicate, range)
-- **Preprocessing**: Mã hóa biến phân loại, chuẩn hóa biến số
-- **Split**: Chia dữ liệu thành tập train/val/test
-
-### 2. Training Pipeline
-- Huấn luyện GradientBoostingRegressor
-- Log tham số và metrics vào MLflow
-- Lưu model artifact (.pkl)
-
-### 3. Model Registry
-- Quản lý phiên bản model qua MLflow
-- Quy trình validate và promote model
-- Model card ghi lại thông tin model
-
-### 4. Serving API
-- FastAPI cung cấp endpoint dự đoán
-- Đóng gói bằng Docker
-- Health check và model info endpoints
-
-### 5. Monitoring
-- Prometheus thu thập metrics (latency, request count)
-- Grafana hiển thị dashboard
-- Loki + Promtail thu thập logs
-- Phát hiện data drift
-
-## Công nghệ sử dụng
-
-| Thành phần       | Công nghệ            |
-| ---------------- | --------------------- |
-| Ngôn ngữ         | Python 3.11           |
-| ML Framework     | Scikit-learn          |
-| Experiment Track | MLflow                |
-| Data Versioning  | DVC                   |
-| API Framework    | FastAPI               |
-| Container        | Docker                |
-| Monitoring       | Prometheus + Grafana  |
-| Logging          | Loki + Promtail       |
-| CI/CD            | GitLab CI             |
+- **Data Pipeline**: Ingest CSV, validate schema/ranges, preprocess (encode, scale), split train/val/test
+- **Training**: GradientBoostingRegressor, log params/metrics/artifacts to MLflow
+- **Registry**: Version models, automated validation against thresholds, promote/rollback
+- **Serving**: FastAPI endpoints /health, /predict, /model-info; Docker image
+- **CI/CD**: GitLab CI lint, test, validate config, build image
+- **Monitoring**: Prometheus metrics, Loki logs, Grafana dashboards, drift detection
+- **E2E**: Docker Compose orchestrates all services

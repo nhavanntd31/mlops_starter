@@ -1,32 +1,30 @@
-import pickle
 import os
-from datetime import datetime
+import mlflow.pyfunc
+
 
 class ModelHolder:
     def __init__(self):
         self.model = None
-        self.scaler = None
-        self.label_encoder = None
-        self.version = "0.1.0"
-        self.loaded_at = None
+        self.model_name = os.getenv("MODEL_NAME", "house-price-model")
+        self.model_version = os.getenv("MODEL_VERSION", "1")
+        self.features = []
 
-    def load(self, model_dir="models"):
-        model_path = os.path.join(model_dir, "model.pkl")
-        scaler_path = os.path.join(model_dir, "scaler.pkl")
-        encoder_path = os.path.join(model_dir, "label_encoder.pkl")
+    def load(self):
+        tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
+        mlflow.set_tracking_uri(tracking_uri)
+        model_uri = f"models:/{self.model_name}/{self.model_version}"
+        self.model = mlflow.pyfunc.load_model(model_uri)
+        if hasattr(self.model, "metadata") and self.model.metadata.signature:
+            sig = self.model.metadata.signature
+            if sig.inputs:
+                self.features = [inp.name for inp in sig.inputs.inputs]
+        print(f"Loaded {model_uri}")
 
-        with open(model_path, "rb") as f:
-            self.model = pickle.load(f)
-        with open(scaler_path, "rb") as f:
-            self.scaler = pickle.load(f)
-        with open(encoder_path, "rb") as f:
-            self.label_encoder = pickle.load(f)
+    def predict(self, features: dict) -> float:
+        import pandas as pd
+        df = pd.DataFrame([features])
+        prediction = self.model.predict(df)
+        return float(prediction[0])
 
-        self.loaded_at = datetime.now().isoformat()
-        print(f"[ModelHolder] Model loaded from {model_dir}")
-
-    @property
-    def is_loaded(self):
-        return self.model is not None
 
 model_holder = ModelHolder()

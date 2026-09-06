@@ -9,30 +9,8 @@ data:
   test_size: 0.2
   val_size: 0.1
 
-features:
-  numeric:
-    - area
-    - bedrooms
-    - bathrooms
-    - age
-    - garage
-  categorical:
-    - location
-  target: price
-
-preprocessing:
-  scaler: StandardScaler
-  encoder: LabelEncoder
-
 training:
-  model: GradientBoostingRegressor
-  params:
-    n_estimators: 200
-    max_depth: 5
-    learning_rate: 0.1
-    random_state: 42
-  experiment_name: house-price-prediction
-
-mlflow:
-  tracking_uri: http://localhost:5000
-  experiment_name: house-price-prediction
+  n_estimators: 200
+  max_depth: 5
+  learning_rate: 0.1
+  subsample: 0.8

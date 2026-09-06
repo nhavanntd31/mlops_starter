@@ -2,47 +2,48 @@ import json
 import yaml
 import sys
 
-def load_thresholds(path="configs/thresholds.yaml"):
-    with open(path, "r", encoding="utf-8") as f:
+
+def load_thresholds(path: str = "configs/thresholds.yaml") -> dict:
+    with open(path) as f:
         return yaml.safe_load(f)
 
-def load_metrics(path="reports/evaluation.json"):
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
 
-def validate_model():
-    thresholds = load_thresholds()
-    metrics = load_metrics()
-    t = thresholds["model_validation"]
+def validate_model(report_path: str = "reports/evaluation.json") -> bool:
+    with open(report_path) as f:
+        report = json.load(f)
+
+    thresholds = load_thresholds()["tabular"]
+    metrics = report["metrics"]
 
     checks = []
 
-    r2 = metrics.get("test_r2", 0)
-    checks.append(("R2 >= {:.2f}".format(t["min_r2"]), r2 >= t["min_r2"], f"R2={r2:.4f}"))
+    test_rmse = metrics.get("test_rmse", float("inf"))
+    passed = test_rmse <= thresholds["rmse_max"]
+    checks.append(("RMSE", test_rmse, thresholds["rmse_max"], "<=", passed))
 
-    rmse = metrics.get("test_rmse", float("inf"))
-    checks.append(("RMSE <= {}".format(t["max_rmse"]), rmse <= t["max_rmse"], f"RMSE={rmse:.2f}"))
+    test_mae = metrics.get("test_mae", float("inf"))
+    passed = test_mae <= thresholds["mae_max"]
+    checks.append(("MAE", test_mae, thresholds["mae_max"], "<=", passed))
 
-    mae = metrics.get("test_mae", float("inf"))
-    checks.append(("MAE <= {}".format(t["max_mae"]), mae <= t["max_mae"], f"MAE={mae:.2f}"))
+    test_r2 = metrics.get("test_r2", -1)
+    passed = test_r2 >= thresholds["r2_min"]
+    checks.append(("R2", test_r2, thresholds["r2_min"], ">=", passed))
 
-    print("=" * 50)
-    print("MODEL VALIDATION REPORT")
-    print("=" * 50)
+    test_mape = metrics.get("test_mape", float("inf"))
+    passed = test_mape <= thresholds["mape_max"]
+    checks.append(("MAPE", test_mape, thresholds["mape_max"], "<=", passed))
 
     all_passed = True
-    for name, passed, detail in checks:
+    for name, value, threshold, op, passed in checks:
         status = "PASS" if passed else "FAIL"
-        print(f"  [{status}] {name} -> {detail}")
+        print(f"  [{status}] {name}: {value:.4f} {op} {threshold}")
         if not passed:
             all_passed = False
 
-    print("=" * 50)
-    if all_passed:
-        print("Result: ALL CHECKS PASSED")
-    else:
-        print("Result: VALIDATION FAILED")
-        sys.exit(1)
+    return all_passed
+
 
 if __name__ == "__main__":
-    validate_model()
+    ok = validate_model()
+    print(f"\nOverall: {'PASSED' if ok else 'FAILED'}")
+    sys.exit(0 if ok else 1)

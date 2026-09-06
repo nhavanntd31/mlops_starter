@@ -1,109 +1,135 @@
-version: "3.8"
-
 services:
   postgres:
     image: postgres:15
     environment:
-      POSTGRES_USER: 
-      POSTGRES_PASSWORD: 
-      POSTGRES_DB: 
+      POSTGRES_USER: mlflow
+      POSTGRES_PASSWORD: mlflow
+      POSTGRES_DB: mlflow
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+      - postgres-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U mlflow"]
       interval: 10s
-      timeout: 5s
       retries: 5
+    networks:
+      - mlops-net
 
   minio:
     image: minio/minio
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: 
-      MINIO_ROOT_PASSWORD: 
-    volumes:
-      - minio_data:/data
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
     ports:
       - "9000:9000"
       - "9001:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      retries: 5
+    networks:
+      - mlops-net
 
   mlflow:
-    image: ghcr.io/mlflow/mlflow:v2.10.0
+    image: ghcr.io/mlflow/mlflow:latest
     command: >
       mlflow server
-      --backend-store-uri postgresql://mlflow:mlflow123@postgres:5432/mlflow
-      --default-artifact-root s3://mlflow-artifacts/
+      --backend-store-uri postgresql://mlflow:mlflow@postgres:5432/mlflow
+      --default-artifact-root s3://mlflow/
       --host 0.0.0.0
       --port 5000
     environment:
       MLFLOW_S3_ENDPOINT_URL: http://minio:9000
       AWS_ACCESS_KEY_ID: minioadmin
-      AWS_SECRET_ACCESS_KEY: minioadmin123
+      AWS_SECRET_ACCESS_KEY: minioadmin
     ports:
       - "5000:5000"
     depends_on:
       postgres:
         condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 15s
+      retries: 5
+    networks:
+      - mlops-net
 
   model-api:
     build:
       context: ..
       dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
     environment:
       MLFLOW_TRACKING_URI: http://mlflow:5000
+      MODEL_NAME: house-price-model
+      MODEL_VERSION: "1"
+    ports:
+      - "8000:8000"
+    volumes:
+      - app-logs:/app/logs
     depends_on:
-      - mlflow
+      mlflow:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      retries: 5
+    networks:
+      - mlops-net
 
   prometheus:
-    image: prom/prometheus:v2.48.0
+    image: prom/prometheus:latest
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - ../monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml
-      - prometheus_data:/prometheus
     ports:
       - "9090:9090"
     depends_on:
       - model-api
+    networks:
+      - mlops-net
 
   loki:
-    image: grafana/loki:2.9.0
+    image: grafana/loki:latest
     ports:
       - "3100:3100"
-    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - mlops-net
 
   promtail:
-    image: grafana/promtail:2.9.0
+    image: grafana/promtail:latest
     volumes:
       - ./promtail.yml:/etc/promtail/config.yml
-      - /var/run/docker.sock:/var/run/docker.sock
+      - app-logs:/var/log/app:ro
     command: -config.file=/etc/promtail/config.yml
     depends_on:
       - loki
+    networks:
+      - mlops-net
 
   grafana:
-    image: grafana/grafana:10.2.0
-    environment:
-      GF_SECURITY_ADMIN_PASSWORD: 
-      GF_AUTH_ANONYMOUS_ENABLED: "true"
-    volumes:
-      - grafana_data:/var/lib/grafana
+    image: grafana/grafana:latest
     ports:
       - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana-data:/var/lib/grafana
     depends_on:
       - prometheus
       - loki
+    networks:
+      - mlops-net
+
+networks:
+  mlops-net:
+    driver: bridge
 
 volumes:
-  postgres_data:
-  minio_data:
-  prometheus_data:
-  grafana_data:
+  postgres-data:
+  minio-data:
+  grafana-data:
+  app-logs:

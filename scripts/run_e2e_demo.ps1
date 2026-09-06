@@ -1,50 +1,30 @@
-# Script demo End-to-End cho du an House Price Prediction
-# Chay toan bo pipeline tu data den prediction
+Write-Host "=== MLOps E2E Demo ==="
 
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host " DEMO END-TO-END: House Price Prediction" -ForegroundColor Cyan
-Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "`n[1/6] Starting stack..."
+Set-Location -Path (Split-Path $PSScriptRoot)
+Push-Location infra
+docker compose up -d --build
+Pop-Location
 
-Write-Host ""
-Write-Host "[Buoc 1] Kiem tra du lieu tho..." -ForegroundColor Yellow
-python -c "import pandas as pd; df = pd.read_csv('data/raw/houses.csv'); print(f'  Du lieu: {len(df)} dong, {len(df.columns)} cot')"
+Write-Host "`n[2/6] Waiting for services..."
+Start-Sleep -Seconds 30
 
-Write-Host ""
-Write-Host "[Buoc 2] Chay validation du lieu..." -ForegroundColor Yellow
-python src/validation/validate.py
+Write-Host "`n[3/6] Running data pipeline..."
+python -c "from src.ingestion.ingest import ingest; from src.preprocessing.preprocess import preprocess; from src.split.split import split_data; df=ingest(); df=preprocess(df); split_data(df)"
 
-Write-Host ""
-Write-Host "[Buoc 3] Tien xu ly du lieu..." -ForegroundColor Yellow
-python src/preprocessing/preprocess.py
-
-Write-Host ""
-Write-Host "[Buoc 4] Chia du lieu train/val/test..." -ForegroundColor Yellow
-python src/split/split.py
-
-Write-Host ""
-Write-Host "[Buoc 5] Huan luyen model..." -ForegroundColor Yellow
+Write-Host "`n[4/6] Training model..."
 python src/training/train.py
 
-Write-Host ""
-Write-Host "[Buoc 6] Validate model..." -ForegroundColor Yellow
-python scripts/validate_model.py
-
-Write-Host ""
-Write-Host "[Buoc 7] Dang ky model..." -ForegroundColor Yellow
+Write-Host "`n[5/6] Registering model..."
 python scripts/register_best_model.py
 
-Write-Host ""
-Write-Host "[Buoc 8] Kiem tra drift..." -ForegroundColor Yellow
-python monitoring/generate_drift_report.py
+Write-Host "`n[6/6] Testing API..."
+Start-Sleep -Seconds 10
+python scripts/sample_predict.py http://localhost:8000
 
-Write-Host ""
-Write-Host "========================================" -ForegroundColor Green
-Write-Host " DEMO HOAN TAT!" -ForegroundColor Green
-Write-Host "========================================" -ForegroundColor Green
-Write-Host ""
-Write-Host "Cac buoc tiep theo:" -ForegroundColor Cyan
-Write-Host "  1. Khoi dong stack: docker compose -f infra/docker-compose.yml up -d"
-Write-Host "  2. Mo MLflow UI: http://localhost:5000"
-Write-Host "  3. Mo API docs: http://localhost:8000/docs"
-Write-Host "  4. Mo Grafana: http://localhost:3000"
-Write-Host "  5. Thu predict: python scripts/sample_predict.py"
+Write-Host "`n=== Done! ==="
+Write-Host "Grafana:    http://localhost:3000 (admin/admin)"
+Write-Host "MLflow:     http://localhost:5000"
+Write-Host "API:        http://localhost:8000/health"
+Write-Host "Prometheus: http://localhost:9090"
+Write-Host "MinIO:      http://localhost:9001 (minioadmin/minioadmin)"

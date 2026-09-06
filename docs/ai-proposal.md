@@ -1,25 +1,60 @@
-# Mẫu Đề xuất Giải pháp AI
+# AI Proposal Template
 
-## 1. Bài toán kinh doanh
-- **Công ty/Lĩnh vực**: _____
-- **Mô tả vấn đề**: _____
-- **Kết quả mong đợi**: _____
+## 1. Business Problem
 
-## 2. Mức độ sẵn sàng dữ liệu
-| Tiêu chí | Trạng thái |
-|----------|-----------|
-| Dữ liệu tồn tại | Có/Không |
-| Chất lượng chấp nhận | Có/Không |
-| Đủ khối lượng | Có/Không |
+**Company/Domain**: _____
+**Problem Statement**: _____
+**Current Process**: _____
+**Expected Outcome**: _____
 
-## 3. Đánh giá ROI
-- **Chi phí phát triển**: _____
-- **Tiết kiệm kỳ vọng**: _____
-- **Thời gian hoàn vốn**: _____
+## 2. Data Readiness
 
-## 4. Lộ trình triển khai
-| Giai đoạn | Thời gian | Sản phẩm |
-|-----------|-----------|----------|
-| PoC | 2-4 tuần | Model baseline |
-| MVP | 4-8 tuần | API + monitoring |
-| Production | 4-8 tuần | MLOps đầy đủ |
+| Criteria | Status | Notes |
+|----------|--------|-------|
+| Data exists | Yes/No | |
+| Data accessible | Yes/No | |
+| Data quality acceptable | Yes/No | |
+| Sufficient volume | Yes/No | |
+| Labels available | Yes/No | |
+
+## 3. Infrastructure Readiness
+
+| Criteria | Status | Notes |
+|----------|--------|-------|
+| Compute available | Yes/No | |
+| Storage sufficient | Yes/No | |
+| Network/API access | Yes/No | |
+| CI/CD pipeline | Yes/No | |
+
+## 4. Team Capability
+
+| Role | Available | Gap |
+|------|-----------|-----|
+| Data Engineer | Yes/No | |
+| ML Engineer | Yes/No | |
+| DevOps/MLOps | Yes/No | |
+| Domain Expert | Yes/No | |
+
+## 5. ROI Assessment
+
+- **Development Cost**: _____
+- **Infrastructure Cost**: _____
+- **Expected Savings/Revenue**: _____
+- **Payback Period**: _____
+- **Risk Level**: Low / Medium / High
+
+## 6. Proposed Solution
+
+- **Model Type**: _____
+- **Input Data**: _____
+- **Output**: _____
+- **Serving Mode**: Batch / Online / Streaming
+- **SLA**: _____
+
+## 7. Implementation Roadmap
+
+| Phase | Duration | Deliverables |
+|-------|----------|-------------|
+| PoC | 2-4 weeks | Baseline model, feasibility report |
+| MVP | 4-8 weeks | API deployed, basic monitoring |
+| Production | 4-8 weeks | Full MLOps pipeline, governance |

@@ -1,45 +1,26 @@
 import json
+import mlflow
 import os
-import shutil
-from datetime import datetime
+import sys
 
-def register_best_model(metrics_path="reports/evaluation.json",
-                        model_path="models/model.pkl",
-                        registry_dir="models/registry"):
-    with open(metrics_path, "r") as f:
-        metrics = json.load(f)
 
-    os.makedirs(registry_dir, exist_ok=True)
+def register_best(
+    report_path: str = "reports/evaluation.json",
+    model_name: str = None,
+):
+    model_name = model_name or os.getenv("MODEL_NAME", "house-price-model")
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    version_dir = os.path.join(registry_dir, f"v_{timestamp}")
-    os.makedirs(version_dir, exist_ok=True)
+    with open(report_path) as f:
+        report = json.load(f)
 
-    shutil.copy2(model_path, os.path.join(version_dir, "model.pkl"))
+    run_id = report["run_id"]
+    model_uri = f"runs:/{run_id}/model"
 
-    for artifact in ["scaler.pkl", "label_encoder.pkl"]:
-        src = os.path.join("models", artifact)
-        if os.path.exists(src):
-            shutil.copy2(src, os.path.join(version_dir, artifact))
+    result = mlflow.register_model(model_uri=model_uri, name=model_name)
+    print(f"Registered {model_name} version {result.version} from run {run_id}")
+    return result
 
-    with open(os.path.join(version_dir, "metrics.json"), "w") as f:
-        json.dump(metrics, f, indent=2)
-
-    manifest = {
-        "version": timestamp,
-        "registered_at": datetime.now().isoformat(),
-        "metrics": metrics,
-        "artifacts": os.listdir(version_dir),
-    }
-    with open(os.path.join(version_dir, "manifest.json"), "w") as f:
-        json.dump(manifest, f, indent=2)
-
-    latest_link = os.path.join(registry_dir, "latest.json")
-    with open(latest_link, "w") as f:
-        json.dump({"version": timestamp, "path": version_dir}, f, indent=2)
-
-    print(f"[Registry] Model registered as v_{timestamp}")
-    return version_dir
 
 if __name__ == "__main__":
-    register_best_model()
+    name = sys.argv[1] if len(sys.argv) > 1 else None
+    register_best(model_name=name)

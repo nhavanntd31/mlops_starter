@@ -1,63 +1,36 @@
 # Model Card — House Price Prediction
 
-## Thông tin chung
+## Model Details
+- **Type**: GradientBoostingRegressor (scikit-learn)
+- **Task**: Tabular regression — predict house price from features
+- **Features**: area, bedrooms, bathrooms, age, floors, location_encoded
+- **Target**: price (USD)
 
-| Mục | Chi tiết |
-|-----|----------|
-| Tên model | GradientBoostingRegressor |
-| Phiên bản | 0.1.0 |
-| Mục tiêu | Dự đoán giá nhà dựa trên đặc trưng |
-| Framework | Scikit-learn |
-| Ngày tạo | 2024 |
+## Training Data
+- Source: [House Sales in King County, USA](https://www.kaggle.com/datasets/harlfoxem/housesalesprediction) (Kaggle, CC0)
+- Raw file: `data/raw/kc_house_data.csv` (~21,613 sales, May 2014–May 2015)
+- Prepared: `data/raw/houses.csv` (~21,510 rows after outlier filter)
+- Mapping: `sqft_living→area`, `2015-yr_built→age`, `zipcode→location`, `floors` kept
+- Split: 70% train, 10% validation, 20% test
+- Preprocessing: LabelEncoder for location (zipcode), StandardScaler for all features
 
-## Mô tả
+## Metrics
+| Metric | Threshold | Description |
+|--------|-----------|-------------|
+| RMSE   | <= 250000 | Root mean squared error (USD) |
+| MAE    | <= 150000 | Mean absolute error (USD) |
+| R2     | >= 0.60   | Coefficient of determination |
+| MAPE   | <= 25%    | Mean absolute percentage error |
 
-Model sử dụng thuật toán Gradient Boosting Regression để dự đoán giá nhà
-dựa trên 6 đặc trưng đầu vào: diện tích, số phòng ngủ, số phòng tắm,
-tuổi nhà, số chỗ đỗ xe và vị trí.
+## Intended Use
+- Educational MLOps project
+- Demonstrates end-to-end ML lifecycle
 
-## Dữ liệu huấn luyện
+## Limitations
+- Features are a simplified subset of the full King County schema
+- 2014–2015 market; not current pricing
+- No feature interactions or advanced engineering
 
-- **Nguồn**: File houses.csv (1000 bản ghi)
-- **Chia tập**: 70% train, 10% validation, 20% test
-- **Tiền xử lý**: LabelEncoder cho location, StandardScaler cho biến số
-
-## Đặc trưng đầu vào
-
-| Đặc trưng | Kiểu | Mô tả |
-|-----------|------|-------|
-| area | float | Diện tích (m²) |
-| bedrooms | int | Số phòng ngủ |
-| bathrooms | int | Số phòng tắm |
-| age | int | Tuổi nhà (năm) |
-| garage | int | Số chỗ đỗ xe |
-| location | str | Vị trí (mã hóa LabelEncoder) |
-
-## Tham số huấn luyện
-
-- n_estimators: 200
-- max_depth: 5
-- learning_rate: 0.1
-- random_state: 42
-
-## Tiêu chí chấp nhận
-
-| Metric | Ngưỡng | Mô tả |
-|--------|--------|-------|
-| R² | >= 0.60 | Hệ số xác định |
-| RMSE | <= 50000 | Sai số bình phương trung bình |
-| MAE | <= 35000 | Sai số tuyệt đối trung bình |
-
-## Giới hạn và rủi ro
-
-- Model chỉ được huấn luyện trên dữ liệu mô phỏng, không phản ánh thị trường thực
-- Hiệu năng có thể giảm khi phân phối dữ liệu thay đổi (data drift)
-- Không xử lý được các vị trí ngoài danh sách District_1 đến District_20
-
-## Quy trình cập nhật
-
-1. Phát hiện data drift qua hệ thống monitoring
-2. Thu thập dữ liệu mới
-3. Huấn luyện lại model với pipeline DVC
-4. Validate model theo tiêu chí chấp nhận
-5. Promote model nếu đạt ngưỡng
+## Ethical Considerations
+- Zipcode / location may encode socioeconomic bias
+- Model should not be used for real pricing decisions

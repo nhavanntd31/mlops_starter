@@ -1,38 +1,26 @@
 stages:
-  ingest:
-    cmd: python src/ingestion/ingest.py
+  map_raw:
+    cmd: python scripts/prepare_king_county.py
     deps:
-      - src/ingestion/ingest.py
-      - data/raw/houses.csv
-      - configs/params.yaml
-
-  validate:
-    cmd: python src/validation/validate.py
-    deps:
-      - src/validation/validate.py
-      - data/raw/houses.csv
-
-  preprocess:
-    cmd: python src/preprocessing/preprocess.py
-    deps:
-      - src/preprocessing/preprocess.py
-      - data/raw/houses.csv
-      - configs/params.yaml
+      - data/raw/kc_house_data.csv
+      - scripts/prepare_king_county.py
     outs:
-      - data/processed/processed.csv
-      - models/label_encoder.pkl
-      - models/scaler.pkl
-
-  split:
-    cmd: python src/split/split.py
+      - data/raw/houses.csv
+  prepare:
+    cmd: python -c "from src.ingestion.ingest import ingest; from src.preprocessing.preprocess import preprocess; from src.split.split import split_data; df=ingest(); df=preprocess(df); split_data(df)"
     deps:
+      - data/raw/houses.csv
+      - src/ingestion/ingest.py
+      - src/validation/validate.py
+      - src/preprocessing/preprocess.py
       - src/split/split.py
-      - data/processed/processed.csv
       - configs/params.yaml
     params:
-      - data.test_size
-      - data.val_size
+      - params.yaml:
+          - prepare
     outs:
       - data/processed/train.csv
       - data/processed/val.csv
       - data/processed/test.csv
+      - data/interim/label_encoder.pkl
+      - data/interim/scaler.pkl

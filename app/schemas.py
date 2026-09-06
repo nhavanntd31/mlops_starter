@@ -1,27 +1,22 @@
-from pydantic import BaseModel, Field
-from typing import Optional
-from datetime import datetime
+from pydantic import BaseModel
+
 
 class PredictRequest(BaseModel):
-    area: float = Field(..., gt=0, description="Area in sqm")
-    bedrooms: int = Field(..., ge=0)
-    bathrooms: int = Field(..., ge=0)
-    age: int = Field(..., ge=0)
-    garage: int = Field(..., ge=0)
-    location: str = Field(..., description="District name")
+    features: dict
+
 
 class PredictResponse(BaseModel):
-    predicted_price: float
+    prediction: float
+    latency_ms: float
     model_version: str
-    timestamp: str
+
 
 class HealthResponse(BaseModel):
     status: str
     model_loaded: bool
-    timestamp: str
+
 
 class ModelInfoResponse(BaseModel):
-    model_type: str
+    model_name: str
     model_version: str
     features: list
-    loaded_at: str

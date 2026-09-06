@@ -1,32 +1,34 @@
-import shutil
-import os
+import mlflow
+from mlflow.tracking import MlflowClient
 import json
-from datetime import datetime
+import sys
+import os
 
-def promote_model(source="models/model.pkl", target_dir="models/production"):
-    os.makedirs(target_dir, exist_ok=True)
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    target_path = os.path.join(target_dir, f"model_{timestamp}.pkl")
+def promote(
+    model_name: str = None,
+    version: int = None,
+    alias: str = "champion",
+    report_path: str = "reports/evaluation.json",
+):
+    model_name = model_name or os.getenv("MODEL_NAME", "house-price-model")
+    client = MlflowClient()
 
-    shutil.copy2(source, target_path)
-    print(f"[Promote] Model copied to {target_path}")
+    if version is None:
+        with open(report_path) as f:
+            report = json.load(f)
+        run_id = report["run_id"]
+        versions = client.search_model_versions(f"run_id='{run_id}'")
+        if not versions:
+            print(f"No registered version found for run {run_id}")
+            print("Register first: mlflow.register_model('runs:/<run_id>/model', '<name>')")
+            sys.exit(1)
+        version = versions[0].version
 
-    latest_path = os.path.join(target_dir, "model_latest.pkl")
-    shutil.copy2(source, latest_path)
-    print(f"[Promote] Latest model updated at {latest_path}")
+    client.set_registered_model_alias(model_name, alias, version)
+    print(f"Promoted {model_name} v{version} -> alias '{alias}'")
 
-    if os.path.exists("reports/evaluation.json"):
-        shutil.copy2("reports/evaluation.json", os.path.join(target_dir, "evaluation.json"))
-
-    manifest = {
-        "promoted_at": timestamp,
-        "source": source,
-        "target": target_path,
-    }
-    with open(os.path.join(target_dir, "manifest.json"), "w") as f:
-        json.dump(manifest, f, indent=2)
-    print("[Promote] Manifest saved")
 
 if __name__ == "__main__":
-    promote_model()
+    alias = sys.argv[1] if len(sys.argv) > 1 else "champion"
+    promote(alias=alias)

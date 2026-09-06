@@ -1,54 +1,86 @@
 import pandas as pd
 import numpy as np
 import json
-import os
+from pathlib import Path
 from datetime import datetime
 
-def calculate_psi(expected, actual, bins=10):
-    breakpoints = np.linspace(min(expected.min(), actual.min()),
-                              max(expected.max(), actual.max()), bins + 1)
-    expected_counts = np.histogram(expected, bins=breakpoints)[0] + 1
-    actual_counts = np.histogram(actual, bins=breakpoints)[0] + 1
 
-    expected_pct = expected_counts / expected_counts.sum()
-    actual_pct = actual_counts / actual_counts.sum()
+def compute_stats(df: pd.DataFrame, numeric_cols: list) -> dict:
+    stats = {}
+    for col in numeric_cols:
+        stats[col] = {
+            "mean": float(df[col].mean()),
+            "std": float(df[col].std()),
+            "min": float(df[col].min()),
+            "max": float(df[col].max()),
+            "median": float(df[col].median()),
+        }
+    return stats
 
-    psi = np.sum((actual_pct - expected_pct) * np.log(actual_pct / expected_pct))
-    return float(psi)
 
-def generate_report(reference_path="data/processed/train.csv",
-                    current_path="data/processed/test.csv",
-                    output_dir="reports"):
+def detect_drift(reference_stats: dict, current_stats: dict, threshold: float = 2.0) -> dict:
+    drift = {}
+    for col in reference_stats:
+        if col not in current_stats:
+            continue
+        ref_mean = reference_stats[col]["mean"]
+        ref_std = reference_stats[col]["std"]
+        cur_mean = current_stats[col]["mean"]
+
+        if ref_std > 0:
+            z_score = abs(cur_mean - ref_mean) / ref_std
+        else:
+            z_score = 0.0
+
+        drift[col] = {
+            "z_score": round(z_score, 4),
+            "drifted": z_score > threshold,
+            "ref_mean": ref_mean,
+            "cur_mean": cur_mean,
+        }
+    return drift
+
+
+def generate_report(
+    reference_path: str = "data/processed/train.csv",
+    current_path: str = None,
+    output_dir: str = "monitoring/reports",
+):
     ref_df = pd.read_csv(reference_path)
-    cur_df = pd.read_csv(current_path)
+    numeric_cols = ref_df.select_dtypes(include=[np.number]).columns.tolist()
+    if "price" in numeric_cols:
+        numeric_cols.remove("price")
 
-    numeric_cols = ["area", "bedrooms", "bathrooms", "age", "garage"]
+    ref_stats = compute_stats(ref_df, numeric_cols)
+
+    if current_path:
+        cur_df = pd.read_csv(current_path)
+    else:
+        cur_df = ref_df.copy()
+        for col in numeric_cols:
+            cur_df[col] = cur_df[col] + np.random.normal(0, 0.1, len(cur_df))
+
+    cur_stats = compute_stats(cur_df, numeric_cols)
+    drift = detect_drift(ref_stats, cur_stats)
+
     report = {
         "generated_at": datetime.now().isoformat(),
-        "reference_samples": len(ref_df),
-        "current_samples": len(cur_df),
-        "features": {},
+        "reference_path": reference_path,
+        "current_path": current_path or "simulated",
+        "n_features": len(numeric_cols),
+        "features_drifted": sum(1 for v in drift.values() if v["drifted"]),
+        "details": drift,
     }
 
-    for col in numeric_cols:
-        if col in ref_df.columns and col in cur_df.columns:
-            psi = calculate_psi(ref_df[col], cur_df[col])
-            drift_status = "no_drift" if psi < 0.1 else "moderate_drift" if psi < 0.2 else "significant_drift"
-            report["features"][col] = {
-                "psi": round(psi, 6),
-                "status": drift_status,
-                "ref_mean": round(float(ref_df[col].mean()), 4),
-                "cur_mean": round(float(cur_df[col].mean()), 4),
-            }
-
-    os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, "drift_report.json")
-    with open(output_path, "w") as f:
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    out_path = Path(output_dir) / "drift_report.json"
+    with open(out_path, "w") as f:
         json.dump(report, f, indent=2)
-    print(f"[Drift] Report saved to {output_path}")
+
+    print(f"Drift report saved to {out_path}")
+    print(f"Features drifted: {report['features_drifted']}/{report['n_features']}")
     return report
 
+
 if __name__ == "__main__":
-    report = generate_report()
-    for feat, info in report["features"].items():
-        print(f"  {feat}: PSI={info['psi']:.4f} ({info['status']})")
+    generate_report()

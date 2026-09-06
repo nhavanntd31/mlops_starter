@@ -3,78 +3,54 @@ stages:
   - test
   - validate
   - build
-  - deploy
 
 variables:
-  PIP_CACHE_DIR: "CI_PROJECT_DIR/.pip-cache"
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
 
 cache:
   paths:
-    - .pip-cache/
+    - .cache/pip
 
 lint:
   stage: lint
-  image: python:3.11-slim
+  image: python:3.11
   script:
-    - pip install flake8 black isort
-    - flake8 src/ app/ tests/ --max-line-length=120 --ignore=E501,W503
-    - black --check src/ app/ tests/
-    - isort --check-only src/ app/ tests/
-  allow_failure: true
+    - pip install ruff
+    - ruff check app/ src/ tests/ scripts/
 
 test:
   stage: test
-  image: python:3.11-slim
+  image: python:3.11
   script:
     - pip install -r requirements.txt
-    - pip install pytest fastapi pydantic
-    - pytest tests/ -v --tb=short
-  artifacts:
-    reports:
-      junit: report.xml
-    when: always
+    - pip install fastapi uvicorn httpx pytest
+    - pytest tests/ -v --ignore=tests/test_api.py
+
+test-api:
+  stage: test
+  image: python:3.11
+  script:
+    - pip install -r requirements.txt
+    - pip install fastapi uvicorn httpx pytest
+    - pytest tests/test_api.py -v
 
 validate-config:
   stage: validate
-  image: python:3.11-slim
+  image: python:3.11
   script:
     - pip install pyyaml
     - python scripts/validate_config.py
-  only:
-    changes:
-      - configs/**/*
 
-validate-model:
-  stage: validate
-  image: python:3.11-slim
-  script:
-    - pip install -r requirements.txt
-    - python scripts/validate_model.py
-  when: manual
-
-build:
+docker-build:
   stage: build
-  image: docker:24.0
+  image: docker:24
   services:
-    - docker:24.0-dind
+    - docker:24-dind
   script:
-    - docker build -t house-price-api:CI_COMMIT_SHORT_SHA .
-    - docker tag house-price-api:CI_COMMIT_SHORT_SHA house-price-api:latest
-  only:
-    - main
-    - master
+    - docker build -t model-api:ci .
+    - docker run --rm model-api:ci python -c "import app.main"
 
-deploy-staging:
-  stage: deploy
-  image: docker:24.0
-  services:
-    - docker:24.0-dind
-  script:
-    - echo "Deploying to staging..."
-    - docker compose -f infra/docker-compose.yml up -d
-  environment:
-    name: staging
-  only:
-    - main
-    - master
-  when: manual
+workflow:
+  rules:
+    - if: $CI_MERGE_REQUEST_IID
+    - if: $CI_COMMIT_BRANCH == "main"

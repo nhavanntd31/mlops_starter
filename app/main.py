@@ -1,79 +1,82 @@
-import logging
+import time
 import json
-import sys
-from datetime import datetime
+import logging
+import os
+from contextlib import asynccontextmanager
+from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from app.schemas import PredictRequest, PredictResponse, HealthResponse, ModelInfoResponse
 from app.model_loader import model_holder
-from app.predictors.tabular import predict_price
-from app.metrics import PrometheusMiddleware, metrics_endpoint
+from app.predictors.tabular import predict_tabular
+from app.metrics import PrometheusMiddleware, metrics_endpoint, PREDICTION_COUNT, PREDICTION_LATENCY
 
-class JSONFormatter(logging.Formatter):
-    def format(self, record):
-        log_data = {
-            "timestamp": datetime.now().isoformat(),
-            "level": record.levelname,
-            "message": record.getMessage(),
-            "module": record.module,
-        }
-        return json.dumps(log_data)
+log_dir = Path("logs")
+log_dir.mkdir(exist_ok=True)
 
-handler = logging.StreamHandler(sys.stdout)
-handler.setFormatter(JSONFormatter())
-logger = logging.getLogger("house-price-api")
-logger.addHandler(handler)
+logger = logging.getLogger("model-api")
 logger.setLevel(logging.INFO)
+handler = logging.FileHandler(log_dir / "app.log")
+handler.setFormatter(logging.Formatter(json.dumps({
+    "time": "%(asctime)s",
+    "level": "%(levelname)s",
+    "message": "%(message)s",
+})))
+logger.addHandler(handler)
 
-app = FastAPI(title="House Price Prediction API", version="0.1.0")
-app.add_middleware(PrometheusMiddleware)
-app.add_route("/metrics", metrics_endpoint, methods=["GET"])
 
-@app.on_event("startup")
-def startup_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     try:
         model_holder.load()
         logger.info("Model loaded successfully")
     except Exception as e:
-        logger.error(f"Failed to load model: {e}")
+        logger.warning(f"Model not loaded: {e}")
+    yield
+
+
+app = FastAPI(title="House Price Prediction API", lifespan=lifespan)
+app.add_middleware(PrometheusMiddleware)
+app.add_route("/metrics", metrics_endpoint)
+
 
 @app.get("/health", response_model=HealthResponse)
 def health():
     return HealthResponse(
-        status="healthy" if model_holder.is_loaded else "unhealthy",
-        model_loaded=model_holder.is_loaded,
-        timestamp=datetime.now().isoformat(),
+        status="ok",
+        model_loaded=model_holder.model is not None,
     )
+
+
+@app.post("/predict", response_model=PredictResponse)
+def predict(req: PredictRequest):
+    if model_holder.model is None:
+        raise HTTPException(503, "Model not loaded")
+
+    start = time.perf_counter()
+    prediction = predict_tabular(req.features)
+    latency = (time.perf_counter() - start) * 1000
+
+    PREDICTION_COUNT.labels(model_version=model_holder.model_version).inc()
+    PREDICTION_LATENCY.labels(model_version=model_holder.model_version).observe(latency / 1000)
+
+    logger.info(json.dumps({
+        "event": "prediction",
+        "model_version": model_holder.model_version,
+        "latency_ms": round(latency, 2),
+        "prediction": prediction,
+    }))
+
+    return PredictResponse(
+        prediction=prediction,
+        latency_ms=round(latency, 2),
+        model_version=model_holder.model_version,
+    )
+
 
 @app.get("/model-info", response_model=ModelInfoResponse)
 def model_info():
-    if not model_holder.is_loaded:
-        raise HTTPException(status_code=503, detail="Model not loaded")
     return ModelInfoResponse(
-        model_type="GradientBoostingRegressor",
-        model_version=model_holder.version,
-        features=["area", "bedrooms", "bathrooms", "age", "garage", "location"],
-        loaded_at=model_holder.loaded_at,
+        model_name=model_holder.model_name,
+        model_version=model_holder.model_version,
+        features=model_holder.features,
     )
-
-@app.post("/predict", response_model=PredictResponse)
-def predict(request: PredictRequest):
-    if not model_holder.is_loaded:
-        raise HTTPException(status_code=503, detail="Model not loaded")
-    try:
-        price = predict_price(
-            area=request.area,
-            bedrooms=request.bedrooms,
-            bathrooms=request.bathrooms,
-            age=request.age,
-            garage=request.garage,
-            location=request.location,
-        )
-        logger.info(f"Prediction: {price:.2f} for {request.dict()}")
-        return PredictResponse(
-            predicted_price=round(price, 2),
-            model_version=model_holder.version,
-            timestamp=datetime.now().isoformat(),
-        )
-    except Exception as e:
-        logger.error(f"Prediction error: {e}")
-        raise HTTPException(status_code=400, detail=str(e))

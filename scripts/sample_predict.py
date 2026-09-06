@@ -1,29 +1,29 @@
-import requests
-import json
+import httpx
+import sys
 
-BASE_URL = "http://localhost:8000"
 
-def check_health():
-    resp = requests.get(f"{BASE_URL}/health")
-    print(f"Health: {resp.json()}")
+def main():
+    base_url = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8000"
 
-def get_model_info():
-    resp = requests.get(f"{BASE_URL}/model-info")
-    print(f"Model Info: {json.dumps(resp.json(), indent=2)}")
+    health = httpx.get(f"{base_url}/health")
+    print(f"Health: {health.json()}")
 
-def predict():
     payload = {
-        "area": 150.0,
-        "bedrooms": 3,
-        "bathrooms": 2,
-        "age": 10,
-        "garage": 1,
-        "location": "District_1"
+        "features": {
+            "area": 2000,
+            "bedrooms": 3,
+            "bathrooms": 2.25,
+            "age": 30,
+            "floors": 1.0,
+            "location_encoded": 20,
+        }
     }
-    resp = requests.post(f"{BASE_URL}/predict", json=payload)
-    print(f"Prediction: {json.dumps(resp.json(), indent=2)}")
+    resp = httpx.post(f"{base_url}/predict", json=payload)
+    print(f"Predict: {resp.json()}")
+
+    info = httpx.get(f"{base_url}/model-info")
+    print(f"Model Info: {info.json()}")
+
 
 if __name__ == "__main__":
-    check_health()
-    get_model_info()
-    predict()
+    main()
