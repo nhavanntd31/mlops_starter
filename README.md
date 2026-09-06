@@ -327,24 +327,52 @@ dir data\raw\kc_house_data.csv
 
 > Buổi 08 có thể đổi remote sang MinIO (`s3://...`) — cùng lệnh `push`/`pull`.
 
-**Bước 3i — Versioning data (Git tag + DVC)**
+**Bước 3i — Demo versioning: đổi split ratio rồi kéo lại bản cũ**
 
-1. Mỗi lần đổi dataset: `dvc add data/raw/kc_house_data.csv` → commit file `.dvc` → `dvc push`
-2. Gắn version:
+Giả sử bản đầu (`data-v1`) đã `dvc repro` + `dvc push` với `test_size=0.2`, `val_size=0.1`
+→ train/val/test ≈ **15057 / 2151 / 4302**.
 
 ```powershell
 git tag data-v1
+dvc push
 ```
 
-3. Sau này lấy lại đúng version:
+Tạo **version 2** — đổi tỉ lệ split:
+
+```powershell
+# sửa configs/params.yaml:
+#   test_size: 0.3
+#   val_size: 0.15
+
+dvc repro
+dvc push
+git add dvc.lock configs/params.yaml
+git commit -m "data: v2 change train/val/test split ratios"
+git tag data-v2
+```
+
+Kỳ vọng v2 ≈ **11830 / 3227 / 6453**.
+
+Khôi phục lại **version 1**:
 
 ```powershell
 git checkout data-v1
 dvc checkout
 dvc pull
+
+python -c "import pandas as pd; print({f: len(pd.read_csv(f'data/processed/{f}')) for f in ['train.csv','val.csv','test.csv']})"
 ```
 
-Git giữ meta (`.dvc`), DVC giữ file nặng (remote/cache).
+Kỳ vọng lại **15057 / 2151 / 4302** (đúng bản v1).
+
+Quay lại nhánh làm việc:
+
+```powershell
+git switch session/02
+dvc checkout
+```
+
+Git giữ `dvc.lock` + params theo tag; DVC remote giữ file `train/val/test` theo hash.
 
 ### Bước 4: Kiểm tra kết quả
 
@@ -354,13 +382,15 @@ dir data\processed\
 python -c "import pandas as pd; [print(f'{f}: {len(pd.read_csv(f\"data/processed/{f}\"))} dòng') for f in ['train.csv', 'val.csv', 'test.csv']]"
 ```
 
-Kết quả mong đợi (với ~21510 bản ghi King County):
+Kết quả mong đợi (King County, **data-v1** với test=0.2 / val=0.1):
 
 | Tập dữ liệu | Tỷ lệ | Số dòng ước tính |
 | ------------ | ------ | ---------------- |
 | train.csv    | 70%    | ~15057           |
 | val.csv      | 10%    | ~2151            |
 | test.csv     | 20%    | ~4302            |
+
+Với **data-v2** (test=0.3 / val=0.15) kỳ vọng ~11830 / 3227 / 6453.
 
 ### Bước 5: Chạy tests
 
