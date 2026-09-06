@@ -1,5 +1,9 @@
 # Buổi 02 — Quản lý Dữ liệu và Data Pipeline
 
+> **Dataset:** [House Sales in King County, USA](https://www.kaggle.com/datasets/harlfoxem/housesalesprediction) (`data/raw/kc_house_data.csv`), đã map sang `data/raw/houses.csv` (~21510 rows; `sqft_living→area`, `yr_built→age`, `zipcode→location`, `floors`).
+> Chuẩn bị lại: `python scripts/prepare_king_county.py`
+
+
 ## Mục tiêu buổi học
 
 - Xây dựng data pipeline từ đầu đến cuối: ingest → validate → preprocess → split
@@ -146,13 +150,13 @@ dir data\processed\
 python -c "import pandas as pd; [print(f'{f}: {len(pd.read_csv(f\"data/processed/{f}\"))} dòng') for f in ['train.csv', 'val.csv', 'test.csv']]"
 ```
 
-Kết quả mong đợi (với 1000 bản ghi):
+Kết quả mong đợi (với ~21510 bản ghi King County):
 
 | Tập dữ liệu | Tỷ lệ | Số dòng ước tính |
 | ------------ | ------ | ---------------- |
-| train.csv    | 70%    | ~700             |
-| val.csv      | 10%    | ~100             |
-| test.csv     | 20%    | ~200             |
+| train.csv    | 70%    | ~15057           |
+| val.csv      | 10%    | ~2151            |
+| test.csv     | 20%    | ~4302            |
 
 ### Bước 5: Chạy tests
 
@@ -181,11 +185,11 @@ Module này chịu trách nhiệm đọc dữ liệu thô từ file CSV. Các ch
 Module kiểm tra chất lượng dữ liệu theo 6 quy tắc:
 
 1. **Cột bắt buộc** — Kiểm tra tất cả cột cần thiết đều tồn tại
-2. **Kiểu số** — Các cột `area`, `bedrooms`, `bathrooms`, `age`, `garage`, `price` phải là kiểu số
+2. **Kiểu số** — Các cột `area`, `bedrooms`, `bathrooms`, `age`, `floors`, `price` phải là kiểu số
 3. **Giá trị null** — Tỷ lệ null mỗi cột phải < 5%
 4. **Bản ghi trùng lặp** — Tỷ lệ trùng lặp phải < 1%
-5. **Phạm vi giá trị** — `area` ∈ (0, 10000], `bedrooms` ∈ [0, 20], `price` > 0
-6. **Vị trí hợp lệ** — Cột `location` chỉ chứa các giá trị trong danh sách cho phép
+5. **Phạm vi giá trị** — `area` ∈ [300, 10000], `bedrooms` ∈ [1, 10], `floors` ∈ [1, 4], `price` ∈ [50000, 3000000]
+6. **Vị trí hợp lệ** — Cột `location` (zipcode) không được rỗng
 
 ### `src/preprocessing/preprocess.py`
 

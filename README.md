@@ -1,5 +1,9 @@
 # Buổi 01 — Tổng quan MLOps và Kiến trúc Production
 
+> **Dataset:** [House Sales in King County, USA](https://www.kaggle.com/datasets/harlfoxem/housesalesprediction) (`data/raw/kc_house_data.csv`), đã map sang `data/raw/houses.csv` (~21510 rows; `sqft_living→area`, `yr_built→age`, `zipcode→location`, `floors`).
+> Chuẩn bị lại: `python scripts/prepare_king_county.py`
+
+
 ## Mục tiêu buổi học
 
 - Hiểu MLOps là gì, tại sao cần MLOps trong môi trường production
@@ -147,13 +151,13 @@ Mô tả các cột trong dataset:
 
 | Cột        | Kiểu dữ liệu | Mô tả                                      | Ví dụ           |
 | ---------- | -------------- | -------------------------------------------- | ---------------- |
-| area       | float          | Diện tích nhà (m²)                           | 120.5            |
+| area       | float          | Diện tích sống (sqft)                        | 2000             |
 | bedrooms   | int            | Số phòng ngủ                                 | 3                |
-| bathrooms  | int            | Số phòng tắm                                 | 2                |
+| bathrooms  | float          | Số phòng tắm                                 | 2.25             |
 | age        | int            | Tuổi nhà (năm)                               | 10               |
-| garage     | int            | Số chỗ đỗ xe                                 | 1                |
-| location   | str            | Vị trí (quận/huyện)                          | District_1       |
-| price      | float          | Giá nhà (đơn vị tiền tệ) — biến mục tiêu    | 350000.0         |
+| floors     | float          | Số tầng                                      | 1.0              |
+| location   | str            | Zipcode (King County)                        | 98178            |
+| price      | float          | Giá nhà (USD) — biến mục tiêu                | 450000.0         |
 
 ### Bước 3: Đọc architecture diagram
 
@@ -177,12 +181,12 @@ House Price Prediction
 Dự đoán giá nhà dựa trên các đặc trưng (diện tích, vị trí, ...) để hỗ trợ quyết định mua bán bất động sản.
 
 ## Chỉ số thành công
-- RMSE < 30.000
+- RMSE < 250.000
 - R² > 0.60
 - Thời gian phản hồi API < 200ms (p95)
 
 ## Phạm vi
-- Dữ liệu: file houses.csv (1000 bản ghi)
+- Dữ liệu: King County house sales → houses.csv (~21510 bản ghi)
 - Model: GradientBoostingRegressor
 - Triển khai: REST API trên Docker
 
@@ -228,7 +232,7 @@ features:
     - bedrooms
     - bathrooms
     - age
-    - garage
+    - floors
   categorical:
     - location
   target: price
