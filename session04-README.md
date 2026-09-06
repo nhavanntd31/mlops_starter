@@ -1,5 +1,9 @@
 # Buổi 04 — Model Registry và Governance
 
+> **Dataset:** [House Sales in King County, USA](https://www.kaggle.com/datasets/harlfoxem/housesalesprediction) (`data/raw/kc_house_data.csv`), đã map sang `data/raw/houses.csv` (~21510 rows; `sqft_living→area`, `yr_built→age`, `zipcode→location`, `floors`).
+> Chuẩn bị lại: `python scripts/prepare_king_county.py`
+
+
 ## Mục tiêu buổi học
 
 - Đăng ký model vào MLflow Model Registry
@@ -222,8 +226,8 @@ Mẫu Model Card:
 Dự đoán giá nhà dựa trên các đặc trưng: diện tích, số phòng, tuổi nhà, vị trí.
 
 ## Dữ liệu huấn luyện
-- **Nguồn:** data/raw/houses.csv
-- **Số lượng:** 1000 bản ghi
+- **Nguồn:** Kaggle King County (`kc_house_data.csv` → `houses.csv`)
+- **Số lượng:** ~21510 bản ghi (King County)
 - **Thời gian thu thập:** 2026
 - **Chia tập:** train 70%, validation 10%, test 20%
 
@@ -240,7 +244,7 @@ Dự đoán giá nhà dựa trên các đặc trưng: diện tích, số phòng,
 
 ## Hướng dẫn sử dụng
 Gọi API prediction endpoint với JSON chứa các trường: area, bedrooms,
-bathrooms, age, garage, location.
+bathrooms, age, floors, location.
 ```
 
 Chỉnh sửa Model Card phù hợp với kết quả thực tế của bạn.
