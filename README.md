@@ -213,16 +213,81 @@ dvc status
 
 Nếu không đổi code/data/params → `Data and pipelines are up to date.`
 
-**Bước 3f — Chạy lại có chọn lọc**
+**Bước 3f — Đổi version params (tỷ lệ split) và xem DVC bắt thay đổi**
 
-Sửa `configs/params.yaml` (ví dụ `test_size: 0.25`), rồi:
+Baseline hiện tại (`test_size: 0.2`, `val_size: 0.1`):
+
+```powershell
+dvc status
+python -c "import pandas as pd; [print(f'{f}: {len(pd.read_csv(f\"data/processed/{f}\"))}') for f in ['train.csv','val.csv','test.csv']]"
+```
+
+Kỳ vọng: `Data and pipelines are up to date.` và khoảng `15057 / 2151 / 4302`.
+
+Sửa `configs/params.yaml`:
+
+```yaml
+data:
+  test_size: 0.25
+  val_size: 0.15
+```
+
+Xem DVC nhận ra thay đổi:
+
+```powershell
+dvc status
+dvc params diff
+```
+
+Kỳ vọng `dvc status` báo stage `split` (và có thể params) **changed**, vì `dvc.yaml` khai báo:
+
+```yaml
+params:
+  - configs/params.yaml:
+      - data.test_size
+      - data.val_size
+```
+
+Chạy lại pipeline:
 
 ```powershell
 dvc repro
-dvc status
 ```
 
-Chỉ các stage phụ thuộc param/`split` cần chạy lại; stage không đổi sẽ được skip.
+Quan sát log: `ingest` / `validate` / `preprocess` thường **skip**; chỉ `split` chạy lại.
+
+Kiểm tra số dòng mới (ví dụ `test_size: 0.25`, `val_size: 0.15`):
+
+```powershell
+python -c "import pandas as pd; [print(f'{f}: {len(pd.read_csv(f\"data/processed/{f}\"))}') for f in ['train.csv','val.csv','test.csv']]"
+```
+
+Kỳ vọng khoảng: `train=12905`, `val=3227`, `test=5378`.
+
+Commit version params này:
+
+```powershell
+git add configs/params.yaml dvc.lock
+git commit -m "params: split test=0.25 val=0.15"
+git tag params-split-v2
+```
+
+Đổi lại về baseline (`test_size: 0.2`, `val_size: 0.1`), rồi:
+
+```powershell
+dvc repro
+git checkout params-split-v2 -- configs/params.yaml dvc.lock
+dvc checkout
+dvc repro
+```
+
+Hoặc so sánh 2 version:
+
+```powershell
+git show HEAD:configs/params.yaml
+git show params-split-v2:configs/params.yaml
+dvc params diff HEAD params-split-v2
+```
 
 **Bước 3g — Chạy lại 1 stage**
 

@@ -4,7 +4,9 @@ stages:
     deps:
       - src/ingestion/ingest.py
       - data/raw/kc_house_data.csv
-      - configs/params.yaml
+    params:
+      - configs/params.yaml:
+          - data.raw_path
 
   validate:
     cmd: python src/validation/validate.py
@@ -19,7 +21,6 @@ stages:
       - src/preprocessing/preprocess.py
       - src/ingestion/ingest.py
       - data/raw/kc_house_data.csv
-      - configs/params.yaml
     outs:
       - data/processed/processed.csv
       - models/label_encoder.pkl
@@ -30,11 +31,12 @@ stages:
     deps:
       - src/split/split.py
       - data/processed/processed.csv
-      - configs/params.yaml
     params:
       - configs/params.yaml:
           - data.test_size
           - data.val_size
+          - data.processed_dir
+          - project.random_seed
     outs:
       - data/processed/train.csv
       - data/processed/val.csv
