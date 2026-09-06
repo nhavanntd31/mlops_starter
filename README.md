@@ -1,8 +1,7 @@
 # Buổi 02 — Quản lý Dữ liệu và Data Pipeline
 
-> **Dataset:** [House Sales in King County, USA](https://www.kaggle.com/datasets/harlfoxem/housesalesprediction) (`data/raw/kc_house_data.csv`), raw `data/raw/kc_house_data.csv` (~21510 rows; `sqft_living→area`, `yr_built→age`, `zipcode→location`, `floors`).
-> Chuẩn bị lại: `# column mapping in src/ingestion/ingest.py`
-
+> **Dataset:** [House Sales in King County, USA](https://www.kaggle.com/datasets/harlfoxem/housesalesprediction)
+> File raw: `data/raw/kc_house_data.csv` (~21613 rows). Mapping cột trong `src/ingestion/ingest.py`.
 
 ## Mục tiêu buổi học
 
@@ -57,11 +56,32 @@ Data pipeline là chuỗi các bước xử lý dữ liệu có thứ tự, tự
 
 DVC là công cụ quản lý phiên bản dữ liệu và pipeline cho dự án ML, hoạt động tương tự Git nhưng dành cho file lớn và pipeline.
 
-Các file quan trọng:
+Các file / lệnh quan trọng:
 
-- **dvc.yaml** — Định nghĩa các bước trong pipeline, đầu vào và đầu ra
-- **params.yaml** — Tham số cấu hình được pipeline sử dụng
-- **dvc repro** — Lệnh chạy lại toàn bộ pipeline (chỉ chạy lại bước có thay đổi)
+| Thành phần | Vai trò |
+|---|---|
+| `dvc.yaml` | Định nghĩa các stage pipeline (deps → cmd → outs) |
+| `params.yaml` / `configs/params.yaml` | Tham số pipeline (`test_size`, `val_size`, …) |
+| `*.dvc` | Meta file Git track thay cho file data lớn |
+| `dvc repro` | Chạy lại pipeline; chỉ re-run stage bị ảnh hưởng |
+| `dvc dag` | Xem đồ thị phụ thuộc các stage |
+| `dvc status` | Xem stage/data nào đã đổi so với lần chạy trước |
+| `dvc add` | Đưa file data vào DVC tracking |
+
+Pipeline trong `dvc.yaml` của buổi này:
+
+```
+kc_house_data.csv
+       │
+       ▼
+   [ingest] ──► [validate]
+       │
+       ▼
+  [preprocess] ── outs: processed.csv, label_encoder.pkl, scaler.pkl
+       │
+       ▼
+    [split] ── outs: train.csv, val.csv, test.csv
+```
 
 ---
 
@@ -128,18 +148,69 @@ python src/split/split.py
 
 Kết quả: chia thành train (70%), val (10%), test (20%) và lưu vào `data/processed/`.
 
-### Bước 3: Chạy toàn bộ pipeline một lệnh
+### Bước 3: Chạy pipeline bằng DVC
 
-**Cách 1 — Python one-liner:**
+**Bước 3a — Cài và khởi tạo DVC (một lần)**
 
 ```powershell
-python -c "import subprocess; [subprocess.run(['python', f'src/{m}/{m.split('/')[-1]}.py'], check=True) for m in ['ingestion/ingest', 'validation/validate', 'preprocessing/preprocess', 'split/split']]"
+pip install "dvc>=3.0"
+dvc init
+git add .dvc .dvcignore
+git commit -m "chore: initialize DVC"
 ```
 
-**Cách 2 — DVC:**
+Nếu repo đã có `.dvc/` thì bỏ qua `dvc init`.
+
+**Bước 3b — Version dataset bằng DVC**
+
+```powershell
+dvc add data/raw/kc_house_data.csv
+git add data/raw/kc_house_data.csv.dvc data/raw/.gitignore
+git commit -m "data: track kc_house_data.csv with DVC"
+```
+
+Sau lệnh này Git chỉ lưu file nhỏ `kc_house_data.csv.dvc` (checksum + path), còn CSV lớn do DVC quản lý.
+
+**Bước 3c — Xem đồ thị pipeline**
+
+```powershell
+dvc dag
+```
+
+Kỳ vọng thấy chuỗi: `ingest → validate` và `ingest → preprocess → split` (đúng như `dvc.yaml`).
+
+**Bước 3d — Chạy toàn bộ pipeline**
 
 ```powershell
 dvc repro
+```
+
+DVC đọc `dvc.yaml`, chạy lần lượt các stage còn stale. Lần đầu sẽ chạy đủ `ingest`, `validate`, `preprocess`, `split`.
+
+**Bước 3e — Kiểm tra trạng thái**
+
+```powershell
+dvc status
+```
+
+Nếu không đổi code/data/params → `Data and pipelines are up to date.`
+
+**Bước 3f — Chạy lại có chọn lọc**
+
+Sửa `configs/params.yaml` (ví dụ `test_size: 0.25`), rồi:
+
+```powershell
+dvc repro
+dvc status
+```
+
+Chỉ các stage phụ thuộc param/`split` cần chạy lại; stage không đổi sẽ được skip.
+
+**Bước 3g — Chạy lại 1 stage**
+
+```powershell
+dvc repro preprocess
+dvc repro split
 ```
 
 ### Bước 4: Kiểm tra kết quả
@@ -229,8 +300,8 @@ Module chia dữ liệu thành 3 tập:
 
 1. **Thêm quy tắc validation** — Viết thêm kiểm tra: `bathrooms` ≤ `bedrooms`, `age` ≥ 0, phát hiện outlier bằng IQR.
 2. **Xử lý giá trị thiếu** — Thay vì chỉ kiểm tra null, hãy viết logic xử lý: điền median cho biến số, điền mode cho biến phân loại.
-3. **Version dữ liệu bằng DVC** — Khởi tạo DVC (`dvc init`), thêm `data/raw/kc_house_data.csv` vào DVC tracking, push lên remote storage.
-4. **Viết thêm test** — Bổ sung test case: kiểm tra tổng số dòng train + val + test = tổng dữ liệu gốc, kiểm tra không có rò rỉ dữ liệu giữa các tập.
+3. **Version dữ liệu bằng DVC** — Chạy đủ `dvc init` → `dvc add data/raw/kc_house_data.csv` → `dvc repro` → `dvc dag`. Đổi `test_size` rồi `dvc repro` lại và giải thích stage nào bị re-run.
+4. **Viết thêm test** — Bổ sung test case: kiểm tra tổng số dòng train + val + test = tổng dữ liệu sau ingest, kiểm tra không có rò rỉ dữ liệu giữa các tập.
 
 ---
 
