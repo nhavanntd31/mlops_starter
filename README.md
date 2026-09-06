@@ -95,7 +95,8 @@ mlops-starter-repo/
 │   └── params.yaml              # Tham số cấu hình cho toàn bộ pipeline
 ├── data/
 │   ├── raw/
-│   │   └── houses.csv           # Dữ liệu thô ban đầu
+│   │   ├── kc_house_data.csv    # Kaggle King County (nguồn)
+│   │   └── houses.csv           # Dataset đã map (~21510 rows)
 │   └── processed/               # Dữ liệu đã xử lý (train/val/test)
 ├── docs/
 │   ├── architecture.md          # Sơ đồ kiến trúc hệ thống
@@ -104,7 +105,9 @@ mlops-starter-repo/
 ├── notebooks/                   # Jupyter notebooks phân tích, thử nghiệm
 ├── reports/
 │   └── evaluation.json          # Kết quả đánh giá model
-├── scripts/                     # Các script hỗ trợ (validate, promote, ...)
+├── scripts/
+│   ├── prepare_king_county.py   # Map kc_house_data.csv → houses.csv
+│   └── ...                      # validate, promote, ...
 ├── src/
 │   ├── ingestion/
 │   │   └── ingest.py            # Đọc dữ liệu thô
@@ -146,6 +149,8 @@ pip install -r requirements.txt
 ```python
 python -c "import pandas as pd; df = pd.read_csv('data/raw/houses.csv'); print(df.shape); print(df.head())"
 ```
+
+Kết quả mong đợi: `shape = (21510, 7)`, các cột `area, bedrooms, bathrooms, age, floors, location, price`.
 
 Mô tả các cột trong dataset:
 
