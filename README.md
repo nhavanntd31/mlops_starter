@@ -150,10 +150,18 @@ Kết quả: chia thành train (70%), val (10%), test (20%) và lưu vào `data/
 
 ### Bước 3: Chạy pipeline bằng DVC
 
+> Trên Windows: luôn `venv\Scripts\activate` trước khi chạy `dvc` / `python`.
+
 **Bước 3a — Cài và khởi tạo DVC (một lần)**
 
 ```powershell
-pip install "dvc>=3.0"
+pip install -r requirements.txt
+dvc --version
+```
+
+Nếu chưa có thư mục `.dvc/`:
+
+```powershell
 dvc init
 git add .dvc .dvcignore
 git commit -m "chore: initialize DVC"
@@ -162,6 +170,14 @@ git commit -m "chore: initialize DVC"
 Nếu repo đã có `.dvc/` thì bỏ qua `dvc init`.
 
 **Bước 3b — Version dataset bằng DVC**
+
+CSV lớn không nên track bằng Git. Nếu `kc_house_data.csv` đang nằm trong Git:
+
+```powershell
+git rm --cached data/raw/kc_house_data.csv
+```
+
+Rồi thêm vào DVC (giữ file local):
 
 ```powershell
 dvc add data/raw/kc_house_data.csv
