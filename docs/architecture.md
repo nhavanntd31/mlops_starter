@@ -11,7 +11,7 @@ Serving API và Monitoring.
 `
 ┌──────────────┐    ┌──────────────┐    ┌──────────────────┐
 │  Data Source  │───>│  Ingestion   │───>│   Validation     │
-│ (houses.csv) │    │  (ingest.py) │    │  (validate.py)   │
+│ (kc_house_data.csv) │    │  (ingest.py) │    │  (validate.py)   │
 └──────────────┘    └──────────────┘    └──────────────────┘
                                                 │
                                                 ▼

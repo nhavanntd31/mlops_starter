@@ -1,7 +1,7 @@
 # Buổi 07 — Monitoring, Metrics và Drift Detection
 
-> **Dataset:** [House Sales in King County, USA](https://www.kaggle.com/datasets/harlfoxem/housesalesprediction) (`data/raw/kc_house_data.csv`), đã map sang `data/raw/houses.csv` (~21510 rows; `sqft_living→area`, `yr_built→age`, `zipcode→location`, `floors`).
-> Chuẩn bị lại: `python scripts/prepare_king_county.py`
+> **Dataset:** [House Sales in King County, USA](https://www.kaggle.com/datasets/harlfoxem/housesalesprediction) (`data/raw/kc_house_data.csv`), đã map sang `data/raw/kc_house_data.csv` (~21510 rows; `sqft_living→area`, `yr_built→age`, `zipcode→location`, `floors`).
+> Chuẩn bị lại: `# column mapping in src/ingestion/ingest.py`
 
 
 ## Mục tiêu buổi học
