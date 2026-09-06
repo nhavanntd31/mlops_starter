@@ -1,3 +1,4 @@
+from src.ingestion.ingest import ingest
 import pandas as pd
 import pickle
 import os
@@ -40,7 +41,7 @@ def preprocess(df, config=None, fit=True, artifacts_dir="models"):
     return df
 
 if __name__ == "__main__":
-    df = pd.read_csv("data/raw/houses.csv")
+    df = ingest()
     processed = preprocess(df)
     os.makedirs("data/processed", exist_ok=True)
     processed.to_csv("data/processed/processed.csv", index=False)
