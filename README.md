@@ -135,6 +135,21 @@ git push origin session-06-ci-cd
 
 Sau khi push, mở GitLab → **CI/CD → Pipelines** để xem pipeline chạy.
 
+### Bước 8: Mô phỏng Continuous Training (CT)
+
+CT = tự động retrain khi data/code thay đổi. Trong lab, mô phỏng bằng DVC + train:
+
+```powershell
+dvc repro
+python src/training/train.py
+python scripts/validate_model.py
+```
+
+Đổi nhẹ `configs/params.yaml` (ví dụ `n_estimators`) hoặc thêm vài dòng data, rồi chạy lại chuỗi trên. Quan sát:
+- Stage DVC nào bị re-run
+- Metrics mới có vượt quality gate trong `configs/thresholds.yaml` không
+- Nếu FAIL gate → không promote (đúng tinh thần CT + quality gate)
+
 ---
 
 ## Chi tiết code
