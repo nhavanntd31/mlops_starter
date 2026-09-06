@@ -1,7 +1,7 @@
 # Buổi 02 — Quản lý Dữ liệu và Data Pipeline
 
-> **Dataset:** [House Sales in King County, USA](https://www.kaggle.com/datasets/harlfoxem/housesalesprediction) (`data/raw/kc_house_data.csv`), đã map sang `data/raw/houses.csv` (~21510 rows; `sqft_living→area`, `yr_built→age`, `zipcode→location`, `floors`).
-> Chuẩn bị lại: `python scripts/prepare_king_county.py`
+> **Dataset:** [House Sales in King County, USA](https://www.kaggle.com/datasets/harlfoxem/housesalesprediction) (`data/raw/kc_house_data.csv`), đã map sang `data/raw/kc_house_data.csv` (~21510 rows; `sqft_living→area`, `yr_built→age`, `zipcode→location`, `floors`).
+> Chuẩn bị lại: `# column mapping in src/ingestion/ingest.py`
 
 
 ## Mục tiêu buổi học
@@ -23,7 +23,7 @@ Data pipeline là chuỗi các bước xử lý dữ liệu có thứ tự, tự
 ┌──────────────────────────────────────────────────────────────────────┐
 │                        DATA PIPELINE                                 │
 │                                                                      │
-│  data/raw/houses.csv                                                 │
+│  data/raw/kc_house_data.csv                                                 │
 │       │                                                              │
 │       ▼                                                              │
 │  ┌──────────┐    ┌──────────┐    ┌─────────────┐    ┌──────────┐    │
@@ -102,7 +102,7 @@ git checkout -b session02-data-pipeline
 python src/ingestion/ingest.py
 ```
 
-Kết quả: đọc `data/raw/houses.csv`, kiểm tra schema, lưu dữ liệu đã chuẩn hóa.
+Kết quả: đọc `data/raw/kc_house_data.csv`, kiểm tra schema, lưu dữ liệu đã chuẩn hóa.
 
 **Bước 2b — Validate (kiểm tra chất lượng)**
 
@@ -174,7 +174,7 @@ Kết quả mong đợi: tất cả test case đều PASSED.
 
 Module này chịu trách nhiệm đọc dữ liệu thô từ file CSV. Các chức năng:
 
-- Đọc file `data/raw/houses.csv` bằng `pandas.read_csv()`
+- Đọc file `data/raw/kc_house_data.csv` bằng `pandas.read_csv()`
 - Kiểm tra sự tồn tại của file
 - Xác nhận schema (danh sách cột) khớp với cấu hình
 - Chuyển đổi kiểu dữ liệu nếu cần
@@ -229,7 +229,7 @@ Module chia dữ liệu thành 3 tập:
 
 1. **Thêm quy tắc validation** — Viết thêm kiểm tra: `bathrooms` ≤ `bedrooms`, `age` ≥ 0, phát hiện outlier bằng IQR.
 2. **Xử lý giá trị thiếu** — Thay vì chỉ kiểm tra null, hãy viết logic xử lý: điền median cho biến số, điền mode cho biến phân loại.
-3. **Version dữ liệu bằng DVC** — Khởi tạo DVC (`dvc init`), thêm `data/raw/houses.csv` vào DVC tracking, push lên remote storage.
+3. **Version dữ liệu bằng DVC** — Khởi tạo DVC (`dvc init`), thêm `data/raw/kc_house_data.csv` vào DVC tracking, push lên remote storage.
 4. **Viết thêm test** — Bổ sung test case: kiểm tra tổng số dòng train + val + test = tổng dữ liệu gốc, kiểm tra không có rò rỉ dữ liệu giữa các tập.
 
 ---

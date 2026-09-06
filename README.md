@@ -1,7 +1,8 @@
+from src.ingestion.ingest import ingest
 # Buổi 01 — Tổng quan MLOps và Kiến trúc Production
 
-> **Dataset:** [House Sales in King County, USA](https://www.kaggle.com/datasets/harlfoxem/housesalesprediction) (`data/raw/kc_house_data.csv`), đã map sang `data/raw/houses.csv` (~21510 rows; `sqft_living→area`, `yr_built→age`, `zipcode→location`, `floors`).
-> Chuẩn bị lại: `python scripts/prepare_king_county.py`
+> **Dataset:** [House Sales in King County, USA](https://www.kaggle.com/datasets/harlfoxem/housesalesprediction) (`data/raw/kc_house_data.csv`), đã map sang `data/raw/kc_house_data.csv` (~21510 rows; `sqft_living→area`, `yr_built→age`, `zipcode→location`, `floors`).
+> Chuẩn bị lại: `# column mapping in src/ingestion/ingest.py`
 
 
 ## Mục tiêu buổi học
@@ -96,7 +97,7 @@ mlops-starter-repo/
 ├── data/
 │   ├── raw/
 │   │   ├── kc_house_data.csv    # Kaggle King County (nguồn)
-│   │   └── houses.csv           # Dataset đã map (~21510 rows)
+│   │   └── kc_house_data.csv           # Dataset đã map (~21510 rows)
 │   └── processed/               # Dữ liệu đã xử lý (train/val/test)
 ├── docs/
 │   ├── architecture.md          # Sơ đồ kiến trúc hệ thống
@@ -106,7 +107,7 @@ mlops-starter-repo/
 ├── reports/
 │   └── evaluation.json          # Kết quả đánh giá model
 ├── scripts/
-│   ├── prepare_king_county.py   # Map kc_house_data.csv → houses.csv
+│   ├── ingest.py   # Map kc_house_data.csv → kc_house_data.csv
 │   └── ...                      # validate, promote, ...
 ├── src/
 │   ├── ingestion/
@@ -147,14 +148,14 @@ pip install -r requirements.txt
 ### Bước 2: Kiểm tra dataset (King County)
 
 Dataset thật từ Kaggle nằm ở `data/raw/kc_house_data.csv` (~21613 sales, Seattle 2014–2015).
-Pipeline lab dùng bản đã map `data/raw/houses.csv` (cùng nguồn, schema gọn hơn).
+Pipeline lab dùng bản đã map `data/raw/kc_house_data.csv` (cùng nguồn, schema gọn hơn).
 
 ```powershell
-python -c "import pandas as pd; raw = pd.read_csv('data/raw/kc_house_data.csv'); print('KC raw:', raw.shape); print(raw[['price','bedrooms','bathrooms','sqft_living','yr_built','zipcode','floors']].head())"
+python -c "import pandas as pd; raw = ingest(); print('KC raw:', raw.shape); print(raw[['price','bedrooms','bathrooms','sqft_living','yr_built','zipcode','floors']].head())"
 
-python scripts/prepare_king_county.py
+# column mapping in src/ingestion/ingest.py
 
-python -c "import pandas as pd; df = pd.read_csv('data/raw/houses.csv'); print('Mapped:', df.shape); print(df.head())"
+python -c "import pandas as pd; df = ingest(); print('Mapped:', df.shape); print(df.head())"
 ```
 
 Kết quả mong đợi:
@@ -163,7 +164,7 @@ Kết quả mong đợi:
 
 Mapping: `sqft_living→area`, `2015-yr_built→age`, `zipcode→location`, giữ `floors`.
 
-Mô tả các cột trong `houses.csv` (đã map):
+Mô tả các cột trong `kc_house_data.csv` (đã map):
 
 | Cột        | Kiểu dữ liệu | Mô tả                                      | Ví dụ           |
 | ---------- | -------------- | -------------------------------------------- | ---------------- |
@@ -202,7 +203,7 @@ Dự đoán giá nhà dựa trên các đặc trưng (diện tích, vị trí, .
 - Thời gian phản hồi API < 200ms (p95)
 
 ## Phạm vi
-- Dữ liệu: King County house sales → houses.csv (~21510 bản ghi)
+- Dữ liệu: King County house sales → kc_house_data.csv (~21510 bản ghi)
 - Model: GradientBoostingRegressor
 - Triển khai: REST API trên Docker
 
@@ -236,7 +237,7 @@ Nội dung file `configs/params.yaml`:
 
 ```yaml
 data:
-  raw_path: data/raw/houses.csv
+  raw_path: data/raw/kc_house_data.csv
   processed_dir: data/processed
   test_size: 0.2
   val_size: 0.1
