@@ -195,6 +195,31 @@ Script thực hiện toàn bộ flow tự động:
 7. Kiểm tra metrics endpoint
 8. In kết quả tổng hợp
 
+### Bước 11 (optional): Ansible IaC
+
+Ansible là phần **optional**. Nếu còn thời gian:
+
+1. Cài: `pip install ansible`
+2. Tạo file `infra/ansible/ping.yml`:
+
+```yaml
+- hosts: localhost
+  connection: local
+  tasks:
+    - name: Check docker is available
+      command: docker version
+      register: docker_out
+      changed_when: false
+
+    - name: Show docker client version
+      debug:
+        msg: "{{ docker_out.stdout_lines | first }}"
+```
+
+3. Chạy: `ansible-playbook infra/ansible/ping.yml`
+
+Mục tiêu: hiểu playbook mô tả trạng thái mong muốn; deploy Compose lên remote server để buổi sau/advanced.
+
 ---
 
 ## Bảng service và port
