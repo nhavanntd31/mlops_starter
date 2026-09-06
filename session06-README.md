@@ -1,5 +1,9 @@
 # Buổi 06 — CI/CD và Quality Gate
 
+> **Dataset:** [House Sales in King County, USA](https://www.kaggle.com/datasets/harlfoxem/housesalesprediction) (`data/raw/kc_house_data.csv`), đã map sang `data/raw/houses.csv` (~21510 rows; `sqft_living→area`, `yr_built→age`, `zipcode→location`, `floors`).
+> Chuẩn bị lại: `python scripts/prepare_king_county.py`
+
+
 ## Mục tiêu buổi học
 
 - Hiểu CI/CD/CT trong MLOps
