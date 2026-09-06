@@ -165,6 +165,24 @@ python scripts/sample_predict.py
 
 Script sẽ gửi request đến `/predict` và in kết quả ra terminal.
 
+### Bước 10: Phân biệt 3 loại inference (thực hành nhẹ)
+
+Buổi này API đang phục vụ **online inference** (`POST /predict`).
+
+**Online (đang làm):**
+
+```powershell
+python scripts/sample_predict.py
+```
+
+**Batch (mô phỏng):** gọi API nhiều lần như nightly batch job:
+
+```powershell
+1..5 | ForEach-Object { python scripts/sample_predict.py }
+```
+
+**Streaming (khái niệm):** không bắt buộc code Kafka trong lab. Hãy viết 5–7 dòng vào `docs/inference-notes.md` giải thích khác biệt latency/throughput giữa batch / online / streaming áp dụng cho bài house price.
+
 ---
 
 ## Chi tiết code
