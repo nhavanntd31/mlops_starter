@@ -49,7 +49,7 @@ def ingest(config=None):
     print(f"[Ingestion] Reading data from {raw_path}")
     raw = pd.read_csv(raw_path)
     df = map_king_county(raw)
-    print(f"[Ingestion] Loaded {len(raw)} raw rows → {len(df)} mapped rows, {len(df.columns)} columns")
+    print(f"[Ingestion] Loaded {len(raw)} raw rows -> {len(df)} mapped rows, {len(df.columns)} columns")
     return df
 
 
