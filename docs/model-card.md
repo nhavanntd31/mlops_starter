@@ -30,7 +30,7 @@ tuổi nhà, số chỗ đỗ xe và vị trí.
 | bedrooms | int | Số phòng ngủ |
 | bathrooms | int | Số phòng tắm |
 | age | int | Tuổi nhà (năm) |
-| garage | int | Số chỗ đỗ xe |
+| floors | int | Số chỗ đỗ xe |
 | location | str | Vị trí (mã hóa LabelEncoder) |
 
 ## Tham số huấn luyện
