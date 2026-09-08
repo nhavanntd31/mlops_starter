@@ -1,0 +1,1 @@
+import pandas as pd; raw = pd.read_csv('data/raw/kc_house_data.csv'); print(raw.shape); print(raw[['price','bedrooms','bathrooms','sqft_living','yr_built','zipcode','floors']].head())
