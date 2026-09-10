@@ -100,6 +100,14 @@ mlops-starter-repo/
 │   │   └── preprocess.py        # Mã hóa biến phân loại, chuẩn hóa biến số
 │   └── split/
 │       └── split.py             # Chia dữ liệu train/val/test
+├── scripts/
+│   └── prepare_data.py          # Giải nén dataset seed ra data/raw/ (bước 0c)
+├── data/
+│   ├── seed/
+│   │   └── kc_house_data.csv.gz # Dataset nén, track bằng Git để ai clone cũng có data
+│   └── raw/
+│       ├── kc_house_data.csv    # File raw thật — DVC quản, KHÔNG nằm trong Git
+│       └── kc_house_data.csv.dvc# Meta file Git track thay cho CSV lớn
 ├── tests/
 │   └── test_data.py             # Unit test cho data pipeline
 ├── dvc.yaml                     # Định nghĩa pipeline DVC
@@ -110,58 +118,125 @@ mlops-starter-repo/
 
 ## Hướng dẫn thực hành
 
-### Bước 1: Checkout branch
+> Lệnh viết theo PowerShell. Trên Linux/macOS đổi 3 chỗ:
+> `venv\Scripts\activate` → `source venv/bin/activate` · `mkdir ..\dvc-storage` → `mkdir -p ../dvc-storage` · `dir` → `ls`
+
+### Bước 0: Chuẩn bị sau khi clone repo
+
+Repo không chứa file CSV thô và không chứa thư mục DVC remote — phải tự dựng 2 thứ này trước.
+
+**0a — Môi trường Python**
+
+```powershell
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+dvc --version
+```
+
+Kết quả: in ra phiên bản DVC, ví dụ `3.67.1`.
+
+**0b — Tạo thư mục DVC remote**
+
+```powershell
+mkdir ..\dvc-storage
+dvc remote list
+```
+
+Kết quả:
+
+```
+localremote     C:\...\dvc-storage  (default)
+```
+
+Đường dẫn phải nằm **cạnh** repo, không nằm trong repo:
+
+```
+Documents/
+├── mlops_starter/     ← repo
+└── dvc-storage/       ← remote (đóng vai S3/MinIO)
+```
+
+**0c — Giải nén dữ liệu thô**
+
+```powershell
+python scripts/prepare_data.py
+```
+
+Kết quả:
+
+```
+[PrepareData] Đã giải nén data/seed/kc_house_data.csv.gz -> data/raw/kc_house_data.csv
+[PrepareData] 2515206 bytes, md5 b1e7bdf4f3e61792c0979a5697dc7145
+```
+
+**0d — Chạy pipeline lần đầu**
+
+```powershell
+dvc repro
+dvc push
+```
+
+Kết quả:
+
+```
+Stage 'ingest' didn't change, skipping
+Stage 'validate' didn't change, skipping
+Running stage 'preprocess':
+Running stage 'split':
+[Split] Train: 11830, Val: 3227, Test: 6453
+```
+
+rồi `7 files pushed`.
+
+> `ingest` và `validate` bị skip vì 2 stage này không tạo file output nào (`outs` trống trong `dvc.yaml`) —
+> chúng chỉ đọc và in ra màn hình. Muốn xem output của chúng thì chạy tay ở Bước 2.
+
+### Bước 1: Tạo branch làm việc
 
 ```powershell
 git checkout -b session02-data-pipeline
 ```
 
-### Bước 2: Chạy từng bước pipeline
+### Bước 2: Chạy từng bước pipeline bằng tay
 
-**Bước 2a — Ingest (đọc dữ liệu thô)**
+Mục đích: xem rõ từng bước làm gì trước khi để DVC tự động hóa.
+
+**2a — Ingest (đọc dữ liệu thô)**
 
 ```powershell
 python src/ingestion/ingest.py
 ```
 
-Kết quả: đọc `data/raw/kc_house_data.csv`, kiểm tra schema, lưu dữ liệu đã chuẩn hóa.
+Kết quả: `Loaded 21613 raw rows -> 21510 mapped rows, 7 columns` + in 5 dòng đầu.
 
-**Bước 2b — Validate (kiểm tra chất lượng)**
+**2b — Validate (kiểm tra chất lượng)**
 
 ```powershell
 python src/validation/validate.py
 ```
 
-Kết quả: kiểm tra 6 quy tắc chất lượng, in báo cáo PASS/FAIL cho từng quy tắc.
+Kết quả: 6 dòng PASS + `[Validation] All checks passed!`
 
-**Bước 2c — Preprocess (tiền xử lý)**
+**2c — Preprocess (tiền xử lý)**
 
 ```powershell
 python src/preprocessing/preprocess.py
 ```
 
-Kết quả: mã hóa cột `location` bằng LabelEncoder, chuẩn hóa biến số bằng StandardScaler, lưu encoder và scaler vào `models/`.
+Kết quả: `Processed 21510 rows`, lưu `data/processed/processed.csv` và 2 file `.pkl` vào `models/`.
 
-**Bước 2d — Split (chia dữ liệu)**
+**2d — Split (chia dữ liệu)**
 
 ```powershell
 python src/split/split.py
 ```
 
-Kết quả: chia thành train (70%), val (10%), test (20%) và lưu vào `data/processed/`.
+Kết quả: `[Split] Train: 11830, Val: 3227, Test: 6453`
 
 ### Bước 3: Chạy pipeline bằng DVC
 
-> Trên Windows: luôn `venv\Scripts\activate` trước khi chạy `dvc` / `python`.
-
-**Bước 3a — Cài và khởi tạo DVC (một lần)**
-
-```powershell
-pip install -r requirements.txt
-dvc --version
-```
-
-Nếu chưa có thư mục `.dvc/`:
+**3a — Khởi tạo DVC (repo này đã làm rồi, bỏ qua)**
 
 ```powershell
 dvc init
@@ -169,60 +244,57 @@ git add .dvc .dvcignore
 git commit -m "chore: initialize DVC"
 ```
 
-Nếu repo đã có `.dvc/` thì bỏ qua `dvc init`.
-
-**Bước 3b — Version dataset bằng DVC**
-
-CSV lớn không nên track bằng Git. Nếu `kc_house_data.csv` đang nằm trong Git:
+**3b — Đưa dataset vào DVC (repo này đã làm rồi, bỏ qua)**
 
 ```powershell
-git rm --cached data/raw/kc_house_data.csv
-```
-
-Rồi thêm vào DVC (giữ file local):
-
-```powershell
-dvc add data/raw/kc_house_data.csv
+git rm --cached data/raw/kc_house_data.csv   # gỡ khỏi Git, giữ file trên đĩa
+dvc add data/raw/kc_house_data.csv           # giao cho DVC quản
 git add data/raw/kc_house_data.csv.dvc data/raw/.gitignore
 git commit -m "data: track kc_house_data.csv with DVC"
 ```
 
-Sau lệnh này Git chỉ lưu file nhỏ `kc_house_data.csv.dvc` (checksum + path), còn CSV lớn do DVC quản lý.
+Kiểm tra kết quả của bước này:
 
-**Bước 3c — Xem đồ thị pipeline**
+```powershell
+git ls-files data/raw/
+```
+
+```
+data/raw/.gitignore
+data/raw/kc_house_data.csv.dvc     ← Git chỉ giữ file meta 100 byte
+                                    ← CSV 2.4MB do DVC quản, không nằm trong Git
+```
+
+> Một file **không được** vừa nằm trong Git vừa có file `.dvc`. Nếu bị vậy, `dvc repro` sẽ báo
+> `output ... is already tracked by SCM (e.g. Git)` — sửa bằng đúng 2 lệnh đầu ở trên.
+
+**3c — Xem đồ thị pipeline**
 
 ```powershell
 dvc dag
 ```
 
-Kỳ vọng thấy chuỗi: `ingest → validate` và `ingest → preprocess → split` (đúng như `dvc.yaml`).
+Kết quả: `ingest → validate` và `ingest → preprocess → split`.
 
-**Bước 3d — Chạy toàn bộ pipeline**
+**3d — Chạy toàn bộ pipeline**
 
 ```powershell
 dvc repro
 ```
 
-DVC đọc `dvc.yaml`, chạy lần lượt các stage còn stale. Lần đầu sẽ chạy đủ `ingest`, `validate`, `preprocess`, `split`.
+DVC đọc `dvc.yaml`, chỉ chạy các stage có thay đổi.
 
-**Bước 3e — Kiểm tra trạng thái**
+**3e — Kiểm tra trạng thái**
 
 ```powershell
 dvc status
 ```
 
-Nếu không đổi code/data/params → `Data and pipelines are up to date.`
+Kết quả: `Data and pipelines are up to date.`
 
-**Bước 3f — Đổi version params (tỷ lệ split) và xem DVC bắt thay đổi**
+**3f — Đổi params và xem DVC bắt thay đổi**
 
-Baseline hiện tại (`test_size: 0.2`, `val_size: 0.1`):
-
-```powershell
-dvc status
-python -c "import pandas as pd; [print(f'{f}: {len(pd.read_csv(f\"data/processed/{f}\"))}') for f in ['train.csv','val.csv','test.csv']]"
-```
-
-Kỳ vọng: `Data and pipelines are up to date.` và khoảng `15057 / 2151 / 4302`.
+Baseline của nhánh `session/02`: `test_size: 0.3`, `val_size: 0.15` → **11830 / 3227 / 6453**
 
 Sửa `configs/params.yaml`:
 
@@ -232,89 +304,86 @@ data:
   val_size: 0.15
 ```
 
-Xem DVC nhận ra thay đổi:
+Xem DVC phát hiện thay đổi:
 
 ```powershell
 dvc status
 dvc params diff
 ```
 
-Kỳ vọng `dvc status` báo stage `split` (và có thể params) **changed**, vì `dvc.yaml` khai báo:
+Kết quả:
 
-```yaml
-params:
-  - configs/params.yaml:
-      - data.test_size
-      - data.val_size
+```
+split:
+        changed deps:
+                configs/params.yaml:
+                        modified:           data.test_size
+
+Path                 Param           HEAD    workspace
+configs/params.yaml  data.test_size  0.3     0.25
 ```
 
-Chạy lại pipeline:
+Chạy lại:
 
 ```powershell
 dvc repro
 ```
 
-Quan sát log: `ingest` / `validate` / `preprocess` thường **skip**; chỉ `split` chạy lại.
+Kết quả: 3 stage đầu skip, `split` cho ra kết quả mới. Dòng cuối là một trong hai:
 
-Kiểm tra số dòng mới (ví dụ `test_size: 0.25`, `val_size: 0.15`):
+| Log | Nghĩa |
+|---|---|
+| `Running stage 'split':` → `[Split] Train: 12905, Val: 3227, Test: 5378` | Lần đầu chạy tỷ lệ này, tính mới |
+| `Stage 'split' is cached - skipping run` | Đã từng chạy tỷ lệ này, lấy lại từ run-cache |
+
+Cả hai đều đúng và cho cùng kết quả. Kiểm tra số dòng:
 
 ```powershell
-python -c "import pandas as pd; [print(f'{f}: {len(pd.read_csv(f\"data/processed/{f}\"))}') for f in ['train.csv','val.csv','test.csv']]"
+python -c "import pandas as pd; print({f: len(pd.read_csv(f'data/processed/{f}')) for f in ['train.csv','val.csv','test.csv']})"
 ```
 
-Kỳ vọng khoảng: `train=12905`, `val=3227`, `test=5378`.
-
-Commit version params này:
-
-```powershell
-git add configs/params.yaml dvc.lock
-git commit -m "params: split test=0.25 val=0.15"
-git tag params-split-v2
+```
+{'train.csv': 12905, 'val.csv': 3227, 'test.csv': 5378}
 ```
 
-Đổi lại về baseline (`test_size: 0.2`, `val_size: 0.1`), rồi:
+Trả lại baseline:
 
 ```powershell
-dvc repro
-git checkout params-split-v2 -- configs/params.yaml dvc.lock
-dvc checkout
+git checkout -- configs/params.yaml
 dvc repro
 ```
 
-Hoặc so sánh 2 version:
+Cả 2 lệnh này chạy **im lặng** (git thành công thì không in gì; `dvc repro` lấy từ cache nên không chạy
+`split.py`, không có dòng `[Split] ...`). Kiểm chứng bằng:
 
 ```powershell
-git show HEAD:configs/params.yaml
-git show params-split-v2:configs/params.yaml
-dvc params diff HEAD params-split-v2
+grep -E "test_size|val_size" configs/params.yaml
+python -c "import pandas as pd; print({f: len(pd.read_csv(f'data/processed/{f}')) for f in ['train.csv','val.csv','test.csv']})"
 ```
 
-**Bước 3g — Chạy lại 1 stage**
+```
+  test_size: 0.3
+  val_size: 0.15
+{'train.csv': 11830, 'val.csv': 3227, 'test.csv': 6453}
+```
+
+> **Run-cache**: DVC nhớ kết quả của mọi tổ hợp (code + data + params) đã từng chạy. Đổi qua đổi lại
+> giữa các tỷ lệ đã dùng sẽ lấy từ cache thay vì tính lại — quay về version cũ không tốn thời gian.
+
+**3g — Chạy lại 1 stage**
 
 ```powershell
 dvc repro preprocess
 dvc repro split
 ```
 
-**Bước 3h — Cấu hình remote và `dvc push` / `dvc pull`**
-
-Lab dùng remote **local folder** (không cần cloud). Tạo thư mục cạnh repo:
-
-```powershell
-mkdir ..\dvc-storage
-dvc remote add -d localremote ..\dvc-storage
-dvc remote list
-git add .dvc/config
-git commit -m "chore: add local DVC remote"
-```
-
-Đẩy data đã track lên remote:
+**3h — Đẩy và kéo data với remote**
 
 ```powershell
 dvc push
 ```
 
-Giả lập máy mới / mất file local, rồi kéo lại:
+Giả lập mất file local rồi kéo lại — chạy **cả 3 lệnh**, đừng dừng giữa chừng:
 
 ```powershell
 Remove-Item data\raw\kc_house_data.csv
@@ -322,57 +391,71 @@ dvc pull
 dir data\raw\kc_house_data.csv
 ```
 
-`dvc push` = upload cache/data lên remote.  
-`dvc pull` = download theo `.dvc` meta đang có trên Git.
+Kết quả: `dvc pull` báo `1 file added`, `dir` thấy lại file 2.4MB.
 
-> Buổi 08 có thể đổi remote sang MinIO (`s3://...`) — cùng lệnh `push`/`pull`.
+> Nếu chỉ chạy `Remove-Item` rồi bỏ đó, mọi lệnh `dvc repro` sau đó sẽ báo
+> `missing data 'source': data/raw/kc_house_data.csv`. Chạy `dvc pull` là xong.
 
-**Bước 3i — Demo versioning: đổi split ratio rồi kéo lại bản cũ**
+| Lệnh | Tác dụng |
+|---|---|
+| `dvc push` | Upload data từ cache local lên remote |
+| `dvc pull` | Download data từ remote theo `.dvc` / `dvc.lock` đang có trên Git |
 
-Giả sử bản đầu (`data-v1`) đã `dvc repro` + `dvc push` với `test_size=0.2`, `val_size=0.1`
-→ train/val/test ≈ **15057 / 2151 / 4302**.
+> Remote của lab là thư mục trên **máy bạn**. Người khác clone repo về máy họ sẽ không truy cập được —
+> họ dùng Bước 0c để lấy data. Muốn nhiều người cùng `dvc pull` thì cần remote dùng chung (MinIO/S3), xem buổi 08.
+
+**3i — Khôi phục version dữ liệu cũ**
+
+Trước khi bắt đầu, working tree phải sạch:
 
 ```powershell
-git tag data-v1
-dvc push
+git status
 ```
 
-Tạo **version 2** — đổi tỉ lệ split:
+Nếu còn file đang sửa dở thì commit hoặc `git stash` trước — không thì `git checkout <tag>` sẽ báo
+`Your local changes to the following files would be overwritten by checkout`.
 
-```powershell
-# sửa configs/params.yaml:
-#   test_size: 0.3
-#   val_size: 0.15
+Repo có sẵn 2 tag:
 
-dvc repro
-dvc push
-git add dvc.lock configs/params.yaml
-git commit -m "data: v2 change train/val/test split ratios"
-git tag data-v2
-```
+| Tag | Params | train / val / test |
+|---|---|---|
+| `data-v1` | `test_size: 0.2`, `val_size: 0.1` | 15057 / 2151 / 4302 |
+| `data-v2` | `test_size: 0.3`, `val_size: 0.15` | 11830 / 3227 / 6453 |
 
-Kỳ vọng v2 ≈ **11830 / 3227 / 6453**.
-
-Khôi phục lại **version 1**:
+Về version 1:
 
 ```powershell
 git checkout data-v1
-dvc checkout
-dvc pull
-
+dvc repro
 python -c "import pandas as pd; print({f: len(pd.read_csv(f'data/processed/{f}')) for f in ['train.csv','val.csv','test.csv']})"
 ```
 
-Kỳ vọng lại **15057 / 2151 / 4302** (đúng bản v1).
+Kết quả: `{'train.csv': 15057, 'val.csv': 2151, 'test.csv': 4302}`
 
 Quay lại nhánh làm việc:
 
 ```powershell
+git checkout -- dvc.lock data/raw/kc_house_data.csv.dvc
 git switch session/02
-dvc checkout
+dvc repro
 ```
 
-Git giữ `dvc.lock` + params theo tag; DVC remote giữ file `train/val/test` theo hash.
+> Dùng `dvc repro` chứ không dùng `dvc pull`: file CSV thô không do Git quản nên `git checkout` không đụng
+> tới nó, `dvc repro` chỉ cần sinh lại các file processed theo params của version đó. Pipeline dùng
+> `random_state=42` nên kết quả tái tạo luôn giống hệt bản gốc.
+>
+> Phải `git checkout -- dvc.lock ...` trước khi `git switch`, vì `dvc repro` vừa ghi hash mới vào `dvc.lock`.
+
+**Tạo version mới của riêng bạn:**
+
+```powershell
+# sửa configs/params.yaml theo ý muốn
+dvc repro
+dvc push
+git add dvc.lock configs/params.yaml
+git commit -m "data: v3 change split ratios"
+git tag data-v3
+```
 
 ### Bước 4: Kiểm tra kết quả
 
@@ -382,15 +465,15 @@ dir data\processed\
 python -c "import pandas as pd; [print(f'{f}: {len(pd.read_csv(f\"data/processed/{f}\"))} dòng') for f in ['train.csv', 'val.csv', 'test.csv']]"
 ```
 
-Kết quả mong đợi (King County, **data-v1** với test=0.2 / val=0.1):
+Kết quả mong đợi trên nhánh `session/02` (`test_size=0.3`, `val_size=0.15`):
 
-| Tập dữ liệu | Tỷ lệ | Số dòng ước tính |
-| ------------ | ------ | ---------------- |
-| train.csv    | 70%    | ~15057           |
-| val.csv      | 10%    | ~2151            |
-| test.csv     | 20%    | ~4302            |
+| Tập dữ liệu | Tỷ lệ | Số dòng |
+| ------------ | ------ | ------- |
+| train.csv    | 55%    | 11830   |
+| val.csv      | 15%    | 3227    |
+| test.csv     | 30%    | 6453    |
 
-Với **data-v2** (test=0.3 / val=0.15) kỳ vọng ~11830 / 3227 / 6453.
+Tổng luôn bằng 21510 dòng sau khi ingest.
 
 ### Bước 5: Chạy tests
 
@@ -398,9 +481,21 @@ Với **data-v2** (test=0.3 / val=0.15) kỳ vọng ~11830 / 3227 / 6453.
 pytest tests/test_data.py -v
 ```
 
-Kết quả mong đợi: tất cả test case đều PASSED.
+Kết quả: `5 passed`
 
 ---
+
+## Xử lý lỗi thường gặp
+
+| Lỗi | Nguyên nhân | Cách sửa |
+|---|---|---|
+| `missing data 'source': data/raw/kc_house_data.csv` | Chưa có file CSV thô | `python scripts/prepare_data.py` (Bước 0c) |
+| `Missing cache files` khi `dvc pull` | Remote trống hoặc chưa tạo | `mkdir ..\dvc-storage` (0b), rồi `dvc repro` + `dvc push` |
+| `output ... is already tracked by SCM (e.g. Git)` | File vừa trong Git vừa có `.dvc` | `git rm --cached <file>` rồi `dvc add <file>` |
+| `Your local changes ... would be overwritten by checkout: dvc.lock` | `dvc repro` vừa ghi hash mới | `git checkout -- dvc.lock` rồi checkout lại |
+| `fatal: pathspec ... did not match any files` khi `git rm --cached` | File đã không còn trong Git | Không cần làm gì, đây là trạng thái đúng |
+| `Data and pipelines are up to date.` khi mong đợi chạy lại | Không có gì thay đổi | Đúng như thiết kế. Muốn ép chạy lại: `dvc repro --force` |
+
 
 ## Chi tiết code
 
@@ -437,12 +532,14 @@ Module tiền xử lý dữ liệu:
 
 ### `src/split/split.py`
 
-Module chia dữ liệu thành 3 tập:
+Module chia dữ liệu thành 3 tập, tỷ lệ đọc từ `configs/params.yaml`:
 
-- Lần 1: `train_test_split` với `test_size=0.2` → tách test set
-- Lần 2: `train_test_split` trên phần còn lại với `test_size=0.125` (= 10% tổng) → tách val set
+- Lần 1: `train_test_split` với `test_size` → tách test set
+- Lần 2: `train_test_split` trên phần còn lại với tỷ lệ `val_size / (1 - test_size)` → tách val set
 - Lưu `train.csv`, `val.csv`, `test.csv` vào `data/processed/`
-- Sử dụng `random_state=42` để kết quả tái tạo được
+- Dùng `random_state` từ `project.random_seed` (= 42) để kết quả tái tạo được
+
+Với `test_size=0.3`, `val_size=0.15` trên 21510 dòng: test = 6453, val = 3227, train = 11830.
 
 ---
 
@@ -463,7 +560,7 @@ Module chia dữ liệu thành 3 tập:
 
 1. **Thêm quy tắc validation** — Viết thêm kiểm tra: `bathrooms` ≤ `bedrooms`, `age` ≥ 0, phát hiện outlier bằng IQR.
 2. **Xử lý giá trị thiếu** — Thay vì chỉ kiểm tra null, hãy viết logic xử lý: điền median cho biến số, điền mode cho biến phân loại.
-3. **Version dữ liệu bằng DVC** — `dvc add` → commit `.dvc` → `dvc push`. Tag `data-v1`, rồi `git checkout` + `dvc pull` để khôi phục. Đổi `test_size` và `dvc repro`, giải thích stage nào re-run.
+3. **Version dữ liệu bằng DVC** — Đổi `test_size` trong `configs/params.yaml`, `dvc repro` + `dvc push`, commit và tạo tag `data-v3`. Sau đó `git checkout data-v1` + `dvc repro` để khôi phục bản cũ. Giải thích stage nào re-run và vì sao.
 4. **Viết thêm test** — Bổ sung test case: kiểm tra tổng số dòng train + val + test = tổng dữ liệu sau ingest, kiểm tra không có rò rỉ dữ liệu giữa các tập.
 
 ---
