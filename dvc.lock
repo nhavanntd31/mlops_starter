@@ -3,57 +3,52 @@ stages:
   ingest:
     cmd: python src/ingestion/ingest.py
     deps:
-    - path: configs/params.yaml
-      hash: md5
-      md5: 4568dfe620b7e46bd54a77bc38d7027f
-      size: 189
     - path: data/raw/kc_house_data.csv
       hash: md5
-      md5: b162e10841eaa8ca9c63c8bf07748ffb
-      size: 2536820
+      md5: b1e7bdf4f3e61792c0979a5697dc7145
+      size: 2515206
     - path: src/ingestion/ingest.py
       hash: md5
-      md5: 6fa2245fa90f01d9d092a4534decd781
-      size: 1704
+      md5: ed45aac1a2a051e441837450f6d08354
+      size: 1646
+    params:
+      configs/params.yaml:
+        data.raw_path: data/raw/kc_house_data.csv
   validate:
     cmd: python src/validation/validate.py
     deps:
     - path: data/raw/kc_house_data.csv
       hash: md5
-      md5: b162e10841eaa8ca9c63c8bf07748ffb
-      size: 2536820
+      md5: b1e7bdf4f3e61792c0979a5697dc7145
+      size: 2515206
     - path: src/ingestion/ingest.py
       hash: md5
-      md5: 6fa2245fa90f01d9d092a4534decd781
-      size: 1704
+      md5: ed45aac1a2a051e441837450f6d08354
+      size: 1646
     - path: src/validation/validate.py
       hash: md5
-      md5: 6d8c39c97829f9fdc22821e0c54e62be
-      size: 2278
+      md5: 54c7173045b0786d5eb5105b7e345110
+      size: 2212
   preprocess:
     cmd: python src/preprocessing/preprocess.py
     deps:
-    - path: configs/params.yaml
-      hash: md5
-      md5: 4568dfe620b7e46bd54a77bc38d7027f
-      size: 189
     - path: data/raw/kc_house_data.csv
       hash: md5
-      md5: b162e10841eaa8ca9c63c8bf07748ffb
-      size: 2536820
+      md5: b1e7bdf4f3e61792c0979a5697dc7145
+      size: 2515206
     - path: src/ingestion/ingest.py
       hash: md5
-      md5: 6fa2245fa90f01d9d092a4534decd781
-      size: 1704
+      md5: ed45aac1a2a051e441837450f6d08354
+      size: 1646
     - path: src/preprocessing/preprocess.py
       hash: md5
-      md5: 59683a47c2f1b835c3cfc2390061871e
-      size: 1802
+      md5: e7688182960f162f446e3b41d1c46d7e
+      size: 1751
     outs:
     - path: data/processed/processed.csv
       hash: md5
-      md5: b1afbca71b713d8f16a9ce7a650d581d
-      size: 2398217
+      md5: eb1000d5759f140a0df702c4b42937d8
+      size: 2376706
     - path: models/label_encoder.pkl
       hash: md5
       md5: 5c98693cd9d136d1566f5760a07b91ef
@@ -65,32 +60,30 @@ stages:
   split:
     cmd: python src/split/split.py
     deps:
-    - path: configs/params.yaml
-      hash: md5
-      md5: 4568dfe620b7e46bd54a77bc38d7027f
-      size: 189
     - path: data/processed/processed.csv
       hash: md5
-      md5: b1afbca71b713d8f16a9ce7a650d581d
-      size: 2398217
+      md5: eb1000d5759f140a0df702c4b42937d8
+      size: 2376706
     - path: src/split/split.py
       hash: md5
-      md5: f533924387465cb68c8b2add38d3290a
-      size: 1173
+      md5: c3b02bed743df0f0bb4b8b88df5ca3ef
+      size: 1140
     params:
       configs/params.yaml:
+        data.processed_dir: data/processed
         data.test_size: 0.3
         data.val_size: 0.15
+        project.random_seed: 42
     outs:
     - path: data/processed/test.csv
       hash: md5
-      md5: 564acc7305bf2cc16e856b3f153f0b73
-      size: 707036
+      md5: 3bac06e18fb3c8f96c0309e61cb6bcd4
+      size: 700582
     - path: data/processed/train.csv
       hash: md5
-      md5: 56d2f3d8c5fe2bdb379efde6987d1428
-      size: 1296103
+      md5: ac3015db65939088af607449a2de4f6e
+      size: 1284272
     - path: data/processed/val.csv
       hash: md5
-      md5: 89762a9c6f2375d94bf90c5f2247ce0f
-      size: 353618
+      md5: c66778085fa48315413d777171b29c53
+      size: 350390
