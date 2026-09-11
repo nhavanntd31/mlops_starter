@@ -153,14 +153,26 @@ training:
   experiment_name: house-price-prediction
 ```
 
-### Bước 3: Huấn luyện model
+### Bước 3: Bật MLflow UI rồi huấn luyện
+
+`train.py` log thí nghiệm tới `http://localhost:5000`. **Phải bật UI trước**, để nguyên terminal đó, rồi mới train ở terminal khác. Nếu quên, lệnh train sẽ đứng im vì retry kết nối bị từ chối.
+
+**Terminal 1** — giữ chạy, không Ctrl+C:
+
+```powershell
+mlflow ui --port 5000
+```
+
+Đợi log `Uvicorn running on http://127.0.0.1:5000`, rồi mở http://localhost:5000.
+
+**Terminal 2** — train:
 
 ```powershell
 $env:PYTHONUTF8="1"
 python src/training/train.py
 ```
 
-Trên Windows, `PYTHONUTF8=1` tránh lỗi encoding khi MLflow log. Nên mở UI trước: `mlflow ui --port 5000`.
+`$env:PYTHONUTF8="1"` tránh lỗi encoding emoji MLflow trên Windows.
 
 Kết quả mong đợi:
 
@@ -184,11 +196,7 @@ MLflow run ID: abc123def456
 
 ### Bước 4: Xem MLflow UI
 
-```powershell
-mlflow ui --port 5000
-```
-
-Mở trình duyệt tại `http://localhost:5000`. Bạn sẽ thấy:
+UI đã chạy từ Bước 3. Mở trình duyệt tại `http://localhost:5000`. Bạn sẽ thấy:
 
 - Danh sách experiments bên trái
 - Bảng các runs với cột params và metrics
@@ -240,7 +248,7 @@ training:
     learning_rate: 0.05
 ```
 
-Chạy lại training:
+Chạy lại training (Terminal 1 vẫn giữ `mlflow ui`):
 
 ```powershell
 $env:PYTHONUTF8="1"
