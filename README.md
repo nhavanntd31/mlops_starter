@@ -105,18 +105,40 @@ mlops-starter-repo/
 
 ## Hướng dẫn thực hành
 
-### Bước 1: Checkout và chạy data pipeline trước
+### Bước 1: Chuẩn bị dữ liệu từ buổi 2
+
+Cần có `train.csv`, `val.csv`, `test.csv` trong `data/processed/` trước khi train. Dùng **đúng `dvc.lock` buổi 2 của máy bạn** (hash khớp data đã `dvc push` vào `../../dvc-storage`). Không dùng lock của người khác.
+
+**Cách 1 — Pull data version buổi 2 (mặc định)**
 
 ```powershell
-git checkout -b session03-training
+git checkout session/03
+git checkout session/02 -- dvc.lock .dvc/config
+dvc pull
+```
 
+Nếu cùng máy đã làm buổi 2 và cache local còn:
+
+```powershell
+dvc checkout
+```
+
+**Cách 2 — Mất `dvc.lock`: sinh lại data bằng DVC**
+
+```powershell
+dvc repro
+```
+
+`dvc repro` đọc `dvc.yaml` và chạy lại `ingest → validate → preprocess → split`. Cần sẵn `data/raw/kc_house_data.csv` (trên `session/03` file này đang trong Git).
+
+Không có DVC thì chạy từng bước:
+
+```powershell
 python src/ingestion/ingest.py
 python src/validation/validate.py
 python src/preprocessing/preprocess.py
 python src/split/split.py
 ```
-
-Đảm bảo thư mục `data/processed/` đã có `train.csv`, `val.csv`, `test.csv`.
 
 ### Bước 2: Xem cấu hình training
 
@@ -134,8 +156,11 @@ training:
 ### Bước 3: Huấn luyện model
 
 ```powershell
+$env:PYTHONUTF8="1"
 python src/training/train.py
 ```
+
+Trên Windows, `PYTHONUTF8=1` tránh lỗi encoding khi MLflow log. Nên mở UI trước: `mlflow ui --port 5000`.
 
 Kết quả mong đợi:
 
@@ -218,6 +243,7 @@ training:
 Chạy lại training:
 
 ```powershell
+$env:PYTHONUTF8="1"
 python src/training/train.py
 ```
 
