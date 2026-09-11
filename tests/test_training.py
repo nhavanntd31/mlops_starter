@@ -62,3 +62,9 @@ def test_model_metrics_are_valid():
     r2 = r2_score(y_true, y_pred)
     assert rmse < 20
     assert r2 > 0.9
+
+def test_data_ready_when_splits_exist():
+    from src.data.ensure_data import data_ready, load_config
+    ready, issues, details = data_ready(load_config())
+    assert ready, issues
+    assert any("train.csv" in d for d in details)

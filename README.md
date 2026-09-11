@@ -89,6 +89,8 @@ Experiment tracking giải quyết bằng cách ghi lại:
 ```
 mlops-starter-repo/
 ├── src/
+│   ├── data/
+│   │   └── ensure_data.py       # Kiểm tra data; thiếu thì pull/rebuild
 │   └── training/
 │       ├── train.py             # Huấn luyện model và log MLflow
 │       └── features.py          # Extract feature theo configs/params.yaml
@@ -99,6 +101,7 @@ mlops-starter-repo/
 ├── models/
 │   └── model.pkl                # Model đã huấn luyện (đầu ra)
 └── reports/
+    ├── evaluation.json          # Báo cáo đánh giá (đầu ra)
     └── features.json            # Danh sách feature đã log
 ```
 
@@ -109,6 +112,14 @@ mlops-starter-repo/
 ### Bước 1: Chuẩn bị dữ liệu từ buổi 2
 
 Cần có `train.csv`, `val.csv`, `test.csv` trong `data/processed/` trước khi train. Dùng **đúng `dvc.lock` buổi 2 của máy bạn** (hash khớp data đã `dvc push` vào `../../dvc-storage`). Không dùng lock của người khác.
+
+**Cách nhanh — kiểm tra và tự bổ sung data**
+
+```powershell
+python src/data/ensure_data.py
+```
+
+Script kiểm tra raw + train/val/test (file tồn tại, có cột bắt buộc, không rỗng). Nếu thiếu: thử `dvc pull` (khi có `dvc.lock` + `.dvc/config`), rồi nếu vẫn thiếu thì chạy `ingest → validate → preprocess → split`. `train.py` cũng gọi sẵn bước này trước khi huấn luyện.
 
 **Cách 1 — Pull data version buổi 2 (mặc định)**
 

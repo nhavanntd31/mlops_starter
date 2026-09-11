@@ -40,3 +40,5 @@ Thumbs.db
 
 .dvc/cache
 .dvc/tmp
+
+mlflow.db

@@ -11,6 +11,7 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from src.training.features import extract_features
+from src.data.ensure_data import ensure_data
 
 try:
     import mlflow
@@ -26,6 +27,8 @@ def load_config(path="configs/params.yaml"):
 def train(config=None):
     if config is None:
         config = load_config()
+
+    ensure_data(config)
 
     processed_dir = config["data"]["processed_dir"]
     target = config["features"]["target"]
