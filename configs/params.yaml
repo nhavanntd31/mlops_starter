@@ -36,3 +36,14 @@ training:
 mlflow:
   tracking_uri: http://localhost:5000
   experiment_name: house-price-prediction
+
+feature_engineering:
+  enabled: false
+  run_name: baseline
+  eps: 0.000001
+  extract:
+    - total_rooms
+    - bath_bed_ratio
+    - area_per_floor
+    - area_per_room
+    - age_squared

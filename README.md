@@ -90,7 +90,8 @@ Experiment tracking giải quyết bằng cách ghi lại:
 mlops-starter-repo/
 ├── src/
 │   └── training/
-│       └── train.py             # Huấn luyện model và log MLflow
+│       ├── train.py             # Huấn luyện model và log MLflow
+│       └── features.py          # Extract feature theo configs/params.yaml
 ├── tests/
 │   └── test_training.py         # Unit test cho training pipeline
 ├── configs/
@@ -98,7 +99,7 @@ mlops-starter-repo/
 ├── models/
 │   └── model.pkl                # Model đã huấn luyện (đầu ra)
 └── reports/
-    └── evaluation.json          # Báo cáo đánh giá (đầu ra)
+    └── features.json            # Danh sách feature đã log
 ```
 
 ---
@@ -236,17 +237,26 @@ Cấu trúc file `evaluation.json`:
 }
 ```
 
-### Bước 6: Thử thay đổi hyperparams và so sánh
+### Bước 6: Feature engineering rồi train lần 2
 
-Mở `configs/params.yaml`, thay đổi tham số:
+Lần 1 (Bước 3) là **baseline**: `feature_engineering.enabled: false`, chỉ 6 cột gốc. Giữ nguyên hyperparams, bật extract rồi train lần 2 để MLflow so sánh đúng phần feature, không lẫn thay đổi cây.
+
+Mở `configs/params.yaml`:
 
 ```yaml
-training:
-  params:
-    n_estimators: 300
-    max_depth: 7
-    learning_rate: 0.05
+feature_engineering:
+  enabled: true
+  run_name: with-extracted-features
+  eps: 0.000001
+  extract:
+    - total_rooms
+    - bath_bed_ratio
+    - area_per_floor
+    - area_per_room
+    - age_squared
 ```
+
+Có thể bớt/thêm tên trong `extract` (các extractor có sẵn: `total_rooms`, `bath_bed_ratio`, `area_per_floor`, `area_per_room`, `age_squared`). `eps` tránh chia cho 0.
 
 Chạy lại training (Terminal 1 vẫn giữ `mlflow ui`):
 
@@ -255,7 +265,23 @@ $env:PYTHONUTF8="1"
 python src/training/train.py
 ```
 
-Mở MLflow UI, chọn 2 runs và nhấn **Compare** để so sánh metrics giữa các lần chạy.
+Kỳ vọng log:
+
+```
+[Training] run_name=with-extracted-features fe_enabled=True
+[Training] n_features=11
+[Training] extracted=['total_rooms', 'bath_bed_ratio', 'area_per_floor', 'area_per_room', 'age_squared']
+```
+
+MLflow run lần 2 có:
+
+- tag `run_type=feature_engineering`
+- params `fe_enabled`, `n_features`, `feature_names`, `extracted_features`
+- artifact `features.json` (danh sách feature + feature importance)
+
+Mở UI, chọn run `baseline` và `with-extracted-features`, nhấn **Compare**.
+
+File local: `reports/features.json`.
 
 ### Bước 7: Chạy tests
 
@@ -290,13 +316,14 @@ pytest tests/test_training.py -v
 Luồng chính:
 
 1. Gọi `load_config()` để đọc tham số
-2. Gọi `load_data()` để tải dữ liệu
+2. Gọi `extract_features()` nếu `feature_engineering.enabled: true`
 3. Khởi tạo `GradientBoostingRegressor` với tham số từ config
 4. Gọi `model.fit(X_train, y_train)` để huấn luyện
-5. Đánh giá trên tập validation và test bằng `evaluate()`
+5. Đánh giá trên tập validation và test
 6. Bắt đầu MLflow run:
-   - `mlflow.log_params()` — ghi tham số
-   - `mlflow.log_metrics()` — ghi metrics
+   - `mlflow.log_params()` — hyperparams + `fe_enabled`, `n_features`, `feature_names`
+   - `mlflow.log_metrics()` — RMSE, MAE, R²
+   - `mlflow.log_dict()` — artifact `features.json`
    - `mlflow.sklearn.log_model()` — lưu model artifact
 7. Lưu model vào `models/model.pkl` bằng `joblib.dump()`
 8. Lưu báo cáo vào `reports/evaluation.json`
