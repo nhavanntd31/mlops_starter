@@ -1,4 +1,4 @@
-# Buổi 06 — CI/CD, Quality Gate và Continuous Training
+# Buổi 06 — CI/CD, Quality Gate và Continuous Training (test edit)
 
 > **Dataset:** [House Sales in King County, USA](https://www.kaggle.com/datasets/harlfoxem/housesalesprediction)
 > File raw: `data/raw/kc_house_data.csv`. Mapping cột trong `src/ingestion/ingest.py`.
@@ -227,6 +227,7 @@ Phải có `model.pkl`, `scaler.pkl`, `label_encoder.pkl`. Nếu thiếu:
 dvc repro
 python src/training/train.py
 ```
+mm
 
 Copy CSV sang chỗ runner luôn tìm được (file raw không nằm trong Git):
 
